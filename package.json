@@ -33,7 +33,8 @@
       "ui/**/*",
       "package.json",
       "node_modules/libd2/**/*",
-      "THIRD_PARTY_NOTICES.txt"
+      "THIRD_PARTY_NOTICES.txt",
+      "assets/**/*"
     ],
     "win": {
       "target": [
@@ -50,7 +51,8 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "icon": "assets/D2RCompanionLauncher.ico"
     },
     "portable": {
       "artifactName": "D2R-Ultimate-Seed-Finder-${version}-Portable.exe"
@@ -64,7 +66,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "D2R Ultimate Seed Finder",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "assets/D2RCompanionLauncher.ico",
+      "uninstallerIcon": "assets/D2RCompanionLauncher.ico",
+      "installerHeaderIcon": "assets/D2RCompanionLauncher.ico"
     }
   },
   "description": "Offline Diablo II: Resurrected Hell map seed finder with persistent ranking database.",

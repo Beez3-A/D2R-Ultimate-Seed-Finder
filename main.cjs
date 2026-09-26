@@ -81,6 +81,7 @@ function createWindow(){
     backgroundColor:"#0c0d0f",
     show:false,
     title:"D2R Ultimate Seed Finder",
+    icon:path.join(__dirname,"assets","infernal-launcher.png"),
     webPreferences:{
       preload:path.join(__dirname,"preload.cjs"),
       contextIsolation:true,
