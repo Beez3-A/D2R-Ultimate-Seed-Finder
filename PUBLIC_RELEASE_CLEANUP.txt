@@ -1,0 +1,21 @@
+PUBLIC RELEASE UPDATE - MANUAL CLEANUP
+======================================
+
+After copying this update into your existing GitHub repository, delete these
+old development-only files if they still exist:
+
+  README.txt
+  FIRST_RELEASE_BUILD.txt
+  NEXUS_RELEASE_CHECKLIST.md
+
+Keep:
+  README.md
+  LICENSE
+  CHANGELOG.md
+  CONTRIBUTING.md
+  DEVELOPMENT.md
+  THIRD_PARTY_NOTICES.txt
+  RELEASE_NOTES_v1.4.0.md
+  NEXUS_PAGE_DRAFT.md
+
+The scanner/runtime source is unchanged by this documentation release pass.

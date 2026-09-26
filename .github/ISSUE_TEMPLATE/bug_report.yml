@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a reproducible problem with D2R Ultimate Seed Finder
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "1.4.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Tell us what you expected and what actually happened.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launch app
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: Seed number (if relevant)
+      placeholder: "1164156916"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots / error text
+      description: Paste error text or drag screenshots here.

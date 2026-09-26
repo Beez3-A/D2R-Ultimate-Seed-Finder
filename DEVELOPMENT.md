@@ -1,33 +1,94 @@
-# Development / release build
+# Development
 
-The downloadable Nexus build should be the generated `.exe`, not this source
-folder.
+This document is for contributors building D2R Ultimate Seed Finder from source.
 
-## Local Windows build
+Normal users should download the Portable EXE and do not need Node.js or npm.
 
-Prerequisites for the developer only:
+## Requirements
 
+- Windows x64
 - Node.js 24.x
 - npm
 
-Commands:
+## Install dependencies
 
 ```powershell
 npm install
-node patch_libd2.mjs
-npm run build:windows
 ```
 
-Outputs are written to `dist/`:
+## Apply the libd2 compatibility patch
 
-- `D2R-Ultimate-Seed-Finder-1.3.0-Portable.exe`
-- `D2R-Ultimate-Seed-Finder-1.3.0-Setup.exe`
+The project currently targets `libd2` 0.6.5 and applies a compatibility correction to the preset parser before building/running:
 
-The packaged applications do not require Node.js on the user's PC.
+```powershell
+node patch_libd2.mjs
+```
+
+## Run from source
+
+```powershell
+npm start
+```
+
+## Build the Windows Portable EXE
+
+```powershell
+npm run build:portable
+```
+
+Output:
+
+```text
+dist/
+  D2R-Ultimate-Seed-Finder-<version>-Portable.exe
+```
 
 ## GitHub Actions
 
-The included `.github/workflows/windows-release.yml` builds both EXEs on a
-Windows GitHub runner and uploads them as a workflow artifact.
+The repository includes:
 
-This is the preferred reproducible build path for community releases.
+```text
+.github/workflows/windows-release.yml
+```
+
+The workflow:
+
+1. checks out the repository
+2. installs Node.js 24
+3. installs dependencies
+4. applies the libd2 compatibility patch
+5. builds the Portable EXE
+6. generates `SHA256SUMS.txt`
+7. uploads the EXE and checksum as a workflow artifact
+
+`electron-builder` is explicitly run with `--publish never`; GitHub Actions handles artifact upload separately.
+
+## Persistent application data
+
+The packaged application stores its database/settings in Electron's per-user application-data location rather than next to the Portable EXE.
+
+This is intentional so replacing the EXE during upgrades does not wipe scan history.
+
+## Scanner invariants
+
+Please treat these as compatibility-sensitive:
+
+- Hell difficulty
+- nine current farming targets
+- no Act IV / Chaos Sanctuary route
+- exact-two-camp Lower Kurast filter
+- both LK camps screen-right of the waypoint
+- tie-aware percentiles
+- 75% weighted mean + 25% weakest-route overall ranking
+- deterministic seed-ID fallback for complete ranking ties
+- startup regression checks for Black Marsh, Stony Field, and WSK2 waypoint detection
+
+If a pull request changes one of these, call it out explicitly.
+
+## libd2
+
+This project uses `libd2` 0.6.5.
+
+The project maintainer has permission from the libd2 maintainer to redistribute the bundled npm/WASM package in this free community application.
+
+See `THIRD_PARTY_NOTICES.txt`.

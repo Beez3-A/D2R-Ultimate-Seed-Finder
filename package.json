@@ -55,6 +55,22 @@
     }
   },
   "description": "Offline Diablo II: Resurrected Hell map seed finder with persistent ranking database.",
-  "author": "D2R Ultimate Seed Finder Community Project",
-  "license": "UNLICENSED"
+  "author": "Beez3-A",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Beez3-A/D2R-Ultimate-Seed-Finder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Beez3-A/D2R-Ultimate-Seed-Finder/issues"
+  },
+  "homepage": "https://github.com/Beez3-A/D2R-Ultimate-Seed-Finder#readme",
+  "keywords": [
+    "diablo-2-resurrected",
+    "d2r",
+    "map-seed",
+    "seed-finder",
+    "offline",
+    "electron"
+  ]
 }

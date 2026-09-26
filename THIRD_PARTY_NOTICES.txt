@@ -1,29 +1,44 @@
 D2R ULTIMATE SEED FINDER - THIRD PARTY NOTICES
 ================================================
 
+This file documents important third-party components used by the project.
+The project's MIT License does not replace third-party licenses or rights.
+
 Electron
 --------
-Electron is distributed under the MIT License.
 Project: https://www.electronjs.org/
+Electron is distributed under the MIT License.
 
 electron-builder
 ----------------
-electron-builder is used only to create Windows release packages.
+Project: https://www.electron.build/
+electron-builder is used to create the Windows Portable EXE and is distributed
+under its own open-source license.
 
 libd2
 -----
-D2R Ultimate Seed Finder uses libd2 0.6.5 for deterministic Diablo II
-map generation and related DRLG data.
+Project: https://github.com/jaenster/libd2
+Version used by this project: 0.6.5
 
-Project:
-https://github.com/jaenster/libd2
+D2R Ultimate Seed Finder uses libd2 for deterministic Diablo II map generation
+and related DRLG data.
 
-The libd2 source code is MIT-licensed. The upstream project also contains
-an important separate notice concerning baked assets derived from Blizzard
-game data. The libd2 maintainer has granted the project permission to redistribute the
-libd2 npm/WASM package inside this free community application. Keep a copy of
-the maintainer's permission with the project release records.
+The libd2 source is MIT-licensed. Its upstream project also contains a separate
+notice concerning baked assets derived from Blizzard game data.
 
+The libd2 maintainer granted D2R Ultimate Seed Finder permission to redistribute
+the bundled libd2 npm/WASM package in this free community application. The
+project owner should retain a copy/link of that permission with release records.
+
+Blizzard Entertainment / Diablo
+--------------------------------
 D2R Ultimate Seed Finder is an independent community utility. It is not
 affiliated with, endorsed by, or sponsored by Blizzard Entertainment.
+
 Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment.
+
+Branding / visual assets
+------------------------
+Visual branding/assets included with this repository are not automatically
+relicensed under the project's MIT source-code license. They remain subject to
+their respective creators' and rights holders' permissions and rights.
