@@ -10,9 +10,9 @@
   "scripts": {
     "start": "electron .",
     "patch:libd2": "node patch_libd2.mjs",
-    "build:windows": "electron-builder --win portable nsis --x64",
-    "build:portable": "electron-builder --win portable --x64",
-    "build:installer": "electron-builder --win nsis --x64"
+    "build:windows": "electron-builder --win portable nsis --x64 --publish never",
+    "build:portable": "electron-builder --win portable --x64 --publish never",
+    "build:installer": "electron-builder --win nsis --x64 --publish never"
   },
   "dependencies": {
     "libd2": "0.6.5"
