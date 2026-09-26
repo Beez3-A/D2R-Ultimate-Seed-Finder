@@ -1,6 +1,6 @@
 {
   "name": "d2r-ultimate-seed-finder-gui",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "main": "main.cjs",
   "type": "module",
@@ -10,9 +10,8 @@
   "scripts": {
     "start": "electron .",
     "patch:libd2": "node patch_libd2.mjs",
-    "build:windows": "electron-builder --win portable nsis --x64 --publish never",
-    "build:portable": "electron-builder --win portable --x64 --publish never",
-    "build:installer": "electron-builder --win nsis --x64 --publish never"
+    "build:windows": "electron-builder --win portable --x64 --publish never",
+    "build:portable": "electron-builder --win portable --x64 --publish never"
   },
   "dependencies": {
     "libd2": "0.6.5"
@@ -43,33 +42,16 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "icon": "assets/D2RCompanionLauncher.ico"
+      "icon": "build/icon.ico"
     },
     "portable": {
       "artifactName": "D2R-Ultimate-Seed-Finder-${version}-Portable.exe"
     },
-    "nsis": {
-      "artifactName": "D2R-Ultimate-Seed-Finder-${version}-Setup.exe",
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "D2R Ultimate Seed Finder",
-      "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false,
-      "installerIcon": "assets/D2RCompanionLauncher.ico",
-      "uninstallerIcon": "assets/D2RCompanionLauncher.ico",
-      "installerHeaderIcon": "assets/D2RCompanionLauncher.ico"
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
     }
   },
   "description": "Offline Diablo II: Resurrected Hell map seed finder with persistent ranking database.",

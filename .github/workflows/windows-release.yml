@@ -1,4 +1,4 @@
-name: Build Windows Release
+name: Build Windows Portable Release
 
 on:
   workflow_dispatch:
@@ -28,24 +28,24 @@ jobs:
       - name: Apply libd2 compatibility patch
         run: node patch_libd2.mjs
 
-      - name: Build Portable and Installer EXEs
-        run: npm run build:windows
+      - name: Build Portable EXE
+        run: npm run build:portable
 
-      - name: Create SHA-256 checksums
+      - name: Create SHA-256 checksum
         shell: pwsh
         run: |
-          $files = Get-ChildItem dist\*.exe
+          $files = Get-ChildItem dist\D2R-Ultimate-Seed-Finder-*-Portable.exe
           $lines = foreach ($f in $files) {
             $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
             "$h  $($f.Name)"
           }
           $lines | Set-Content dist\SHA256SUMS.txt
 
-      - name: Upload Windows release artifacts
+      - name: Upload Portable release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: D2R-Ultimate-Seed-Finder-Windows
+          name: D2R-Ultimate-Seed-Finder-Windows-Portable
           path: |
-            dist/*.exe
+            dist/D2R-Ultimate-Seed-Finder-*-Portable.exe
             dist/SHA256SUMS.txt
           if-no-files-found: error
