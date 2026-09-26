@@ -200,6 +200,18 @@ The libd2 maintainer granted this project permission to redistribute the bundled
 
 See [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for additional information.
 
+## Author
+
+**ArcBee**
+
+## Support the project
+
+If D2R Ultimate Seed Finder has been useful to you and you'd like to support continued development, you can buy me a coffee via PayPal:
+
+[Support D2R Ultimate Seed Finder on PayPal](https://paypal.me/arcbeematt?locale.x=en_US&country.x=ZA)
+
+Support is completely optional. The project will remain free and open source.
+
 ## License
 
 The original source code for D2R Ultimate Seed Finder is released under the [MIT License](LICENSE).
