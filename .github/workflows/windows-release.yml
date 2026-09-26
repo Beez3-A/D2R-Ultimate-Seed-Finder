@@ -1,0 +1,52 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Apply libd2 compatibility patch
+        run: node patch_libd2.mjs
+
+      - name: Build Portable and Installer EXEs
+        run: npm run build:windows
+
+      - name: Create SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem dist\*.exe
+          $lines = foreach ($f in $files) {
+            $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($f.Name)"
+          }
+          $lines | Set-Content dist\SHA256SUMS.txt
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: D2R-Ultimate-Seed-Finder-Windows
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

@@ -1,0 +1,19 @@
+{
+  "seedsToScore": 5000,
+  "topResults": 100,
+  "requireTwoLowerKurastCampfires": true,
+  "requireLowerKurastCampsRightOfWaypoint": true,
+  "overallMeanWeight": 0.75,
+  "overallWorstRouteWeight": 0.25,
+  "weights": {
+    "andariel": 1.0,
+    "countess": 1.0,
+    "pit": 1.0,
+    "tristram": 1.0,
+    "duriel": 1.0,
+    "mephisto": 1.0,
+    "lowerKurast": 1.0,
+    "threshSocket": 1.0,
+    "baal": 1.0
+  }
+}

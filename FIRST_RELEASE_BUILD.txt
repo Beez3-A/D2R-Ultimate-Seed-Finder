@@ -1,0 +1,47 @@
+D2R ULTIMATE SEED FINDER v1.3 - FIRST RELEASE BUILD
+======================================================
+
+GOAL
+----
+Generate the two files community users will download:
+
+  D2R-Ultimate-Seed-Finder-1.3.0-Portable.exe
+  D2R-Ultimate-Seed-Finder-1.3.0-Setup.exe
+
+Community users do NOT need Node.js, npm, BAT files, or this source folder.
+
+RECOMMENDED BUILD: GITHUB ACTIONS
+---------------------------------
+1. Create/open the GitHub repository for D2R Ultimate Seed Finder.
+2. Upload the CONTENTS of this ZIP to the repository root.
+   Important: package.json should be visible at the repository root.
+3. Commit the files.
+4. Open the repository's Actions tab.
+5. Select "Build Windows Release".
+6. Click "Run workflow" -> "Run workflow".
+7. When the run finishes successfully, open it.
+8. Under Artifacts, download:
+      D2R-Ultimate-Seed-Finder-Windows
+9. Extract that artifact ZIP. It should contain both EXEs plus SHA256SUMS.txt.
+
+FIRST TEST
+----------
+Test Portable first. Ideally test on a Windows PC/VM where Node.js is not
+installed. Double-click the Portable EXE. The GUI should open directly.
+
+Verify:
+- app opens with no terminal window;
+- dashboard loads;
+- startup/preflight checks pass;
+- run a small 100-seed scan;
+- stop button works;
+- close and reopen: database/history remains;
+- replace the EXE with a newer copy: history remains;
+- no system Node.js installation is requested.
+
+Then test the Setup EXE.
+
+DO NOT UPLOAD TO NEXUS YET
+--------------------------
+First send the Portable EXE or a screenshot/video of the test back into our
+ChatGPT thread so we can do the final release sanity pass.

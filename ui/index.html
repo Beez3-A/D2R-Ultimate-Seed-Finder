@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>D2R Ultimate Seed Finder</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">DIABLO II: RESURRECTED · OFFLINE HELL</div>
+      <h1>D2R Ultimate Seed Finder</h1>
+      <p>Build a permanent database of convenient farming maps. Nine targets, one seed.</p>
+    </div>
+    <div class="header-actions">
+      <button id="importBtn" class="ghost">Import v0.6 CSV</button>
+      <button id="dataBtn" class="ghost">Open Data Folder</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stats-grid">
+      <div class="stat"><span>Seeds evaluated</span><strong id="totalEvaluated">0</strong><small id="evaluatedNote"></small></div>
+      <div class="stat"><span>Exact seed IDs tracked</span><strong id="totalTracked">0</strong><small>known IDs that will never be rescanned</small></div>
+      <div class="stat"><span>Valid candidates</span><strong id="totalValid">0</strong><small>stored and re-ranked permanently</small></div>
+      <div class="stat"><span>Overall yield</span><strong id="yieldStat">—</strong><small id="yieldNote"></small></div>
+      <div class="stat accent"><span>Current #1</span><strong id="bestSeed">—</strong><small>best under current weights</small></div>
+    </section>
+
+    <section class="panel scan-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Seed Search</h2>
+          <p>Each scan adds new unique seeds. Previously tested seed IDs are skipped automatically.</p>
+        </div>
+        <div class="scan-controls">
+          <label>New seeds
+            <input id="seedCount" type="number" min="100" step="100" value="5000">
+          </label>
+          <button id="startBtn" class="primary">Start Scan</button>
+          <button id="stopBtn" class="danger" disabled>Stop Safely</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+        <div class="progress-meta">
+          <span id="phaseText">Ready.</span>
+          <span id="progressText">0 / 0</span>
+          <span id="speedText">— seeds/sec</span>
+        </div>
+      </div>
+
+      <div id="validationStrip" class="validation-strip"></div>
+    </section>
+
+    <section class="workspace">
+      <div class="left-column">
+        <section class="panel leaderboard-panel">
+          <div class="panel-head compact">
+            <div>
+              <h2>Top 10 Dream Seeds</h2>
+              <p><b>Dream Rating:</b> higher is better. Route Ratings also use higher-is-better scores.</p>
+            </div>
+            <div class="legend">
+              <span><i class="dot elite"></i> Elite route</span>
+              <span><i class="dot weak"></i> Weakest route</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Seed</th>
+                  <th>Dream Rating</th>
+                  <th>Elite</th>
+                  <th>Weakest Route</th>
+                  <th class="numeric">Balance Score ↓</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody">
+                <tr><td colspan="6" class="empty">No candidates stored yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel weights-panel">
+          <div class="panel-head compact">
+            <div>
+              <h2>Target Weights</h2>
+              <p>Choose a preset or fine-tune the sliders. 1.0 = normal importance.</p>
+            </div>
+          </div>
+          <div class="preset-bar">
+            <span class="preset-label">Ranking preset</span>
+            <button class="preset-btn" data-preset="balanced">Balanced</button>
+            <button class="preset-btn" data-preset="boss">Boss Farming</button>
+            <button class="preset-btn" data-preset="runes">Rune Farming</button>
+            <button class="preset-btn" data-preset="custom">Custom</button>
+          </div>
+          <div id="weightsGrid" class="weights-grid"></div>
+        </section>
+      </div>
+
+      <aside class="panel details-panel">
+        <div id="detailsEmpty" class="details-empty">
+          <div class="big-number">#1</div>
+          <h2>Select a seed</h2>
+          <p>Click a leaderboard row to see all nine route ratings, raw distances, and map details.</p>
+        </div>
+        <div id="detailsContent" class="details-content hidden">
+          <div class="seed-head">
+            <div>
+              <div class="eyebrow">SELECTED SEED</div>
+              <h2 id="detailSeed">—</h2>
+            </div>
+            <button id="copySeedBtn" class="primary small">Copy Seed</button>
+          </div>
+
+          <div class="rating-card">
+            <div><span>Dream Rating</span><strong id="detailRating">—</strong></div>
+            <div><span>Database Rank</span><strong id="detailRank">—</strong></div>
+            <div><span>Balance Score</span><strong id="detailOverall">—</strong><small>lower is better</small></div>
+          </div>
+
+          <div id="routeCards" class="route-cards"></div>
+
+          <div class="technical">
+            <h3>Map details</h3>
+            <div id="technicalDetails"></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <span id="footerStatus">Database is stored outside the app folder so upgrades keep your scan history.</span>
+    <span id="versionText"></span>
+  </footer>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
