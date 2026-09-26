@@ -239,8 +239,8 @@ window.seedFinder.onScanEvent(evt=>{
     $("speedText").textContent=`${one(evt.speed)} seeds/sec`;
     $("totalTracked").textContent=fmt(evt.totalTested);
   } else if(evt.type==="scan-complete"){
-    state.running=false;
-    setRunning(false);
+    // The results are complete, but keep Start disabled until Electron
+    // confirms that the scan worker has actually exited.
     renderDashboard(evt.dashboard);
     $("phaseText").textContent=evt.status==="completed"?"Scan complete.":"Scan stopped safely. Results were kept.";
     toast(`Added ${fmt(evt.valid)} valid candidates from ${fmt(evt.checked)} new seeds.`);
@@ -249,8 +249,12 @@ window.seedFinder.onScanEvent(evt=>{
     $("phaseText").textContent="Stopped: "+evt.message;
     toast(evt.message);
   } else if(evt.type==="worker-exit"){
-    if(state.running && evt.code!==0){
-      state.running=false;setRunning(false);
+    if(state.running){
+      state.running=false;
+      setRunning(false);
+      if(evt.code!==0){
+        $("phaseText").textContent=`Scan worker exited unexpectedly (code ${evt.code ?? "?"}).`;
+      }
     }
   }
 });

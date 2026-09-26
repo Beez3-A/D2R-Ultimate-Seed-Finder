@@ -476,9 +476,17 @@ db.prepare("UPDATE runs SET finished_at=?,checked=?,valid=?,status=? WHERE id=?"
 
 emit("phase",{name:"ranking",message:"Re-ranking the persistent seed database…"});
 const dash=dashboard(db,settings);
+db.close();
+
 emit("scan-complete",{
   status,checked,valid,reasons,skippedDuplicates,
   dashboard:dash
 });
 
-db.close();
+// The scan worker owns a live stdin listener so it can receive STOP.
+// Once a scan has completed/stopped, remove that listener and exit only
+// after stdout has flushed the final scan-complete event. Otherwise the
+// child stays alive and Electron correctly believes a scan is still running.
+process.stdin.removeAllListeners("data");
+process.stdin.pause();
+process.stdout.write("",()=>process.exit(0));

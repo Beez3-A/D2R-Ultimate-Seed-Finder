@@ -2,6 +2,15 @@
 
 All notable public changes to D2R Ultimate Seed Finder are documented here.
 
+## [1.4.1] - 2026-09-26
+
+### Hotfix
+
+- Fixed a scan-worker lifecycle bug where a completed scan could leave the worker process alive waiting for STOP input.
+- Fixed subsequent scans incorrectly reporting **“A scan is already running.”** until the application was restarted.
+- The Start Scan button now remains disabled until the previous scan worker has genuinely exited.
+- No map-generation, route-scoring, ranking, database, or seed-validation logic was changed.
+
 ## [1.4.0] - 2026-09-26
 
 ### Public portable release

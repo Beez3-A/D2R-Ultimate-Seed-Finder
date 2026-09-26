@@ -59,7 +59,7 @@ The layout is scored as waypoint → first camp → second camp.
 
 ## Installation
 
-1. Download `D2R-Ultimate-Seed-Finder-1.4.0-Portable.exe`.
+1. Download `D2R-Ultimate-Seed-Finder-1.4.1-Portable.exe`.
 2. Put it anywhere you like.
 3. Run it.
 

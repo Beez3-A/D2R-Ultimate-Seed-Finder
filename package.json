@@ -1,6 +1,6 @@
 {
   "name": "d2r-ultimate-seed-finder-gui",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "main": "main.cjs",
   "type": "module",
