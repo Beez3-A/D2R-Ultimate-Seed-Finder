@@ -7,26 +7,28 @@ const METRICS=[
   ["duriel","Duriel / True Tomb"],
   ["mephisto","Mephisto"],
   ["lowerKurast","Lower Kurast"],
+  ["riverOfFlame","River of Flame Superchests"],
   ["threshSocket","Thresh Socket"],
+  ["nihlathak","Nihlathak (Halls of Pain → Vaught)"],
   ["baal","Worldstone / Baal"]
 ];
 
 const WEIGHT_PRESETS={
   balanced:{
     andariel:1.0,countess:1.0,pit:1.0,tristram:1.0,duriel:1.0,
-    mephisto:1.0,lowerKurast:1.0,threshSocket:1.0,baal:1.0
+    mephisto:1.0,lowerKurast:1.0,riverOfFlame:1.0,threshSocket:1.0,nihlathak:1.0,baal:1.0
   },
   boss:{
     andariel:2.0,countess:1.2,pit:0.5,tristram:0.7,duriel:1.5,
-    mephisto:2.5,lowerKurast:0.5,threshSocket:0.8,baal:2.5
+    mephisto:2.5,lowerKurast:0.5,riverOfFlame:0.7,threshSocket:0.8,nihlathak:2.2,baal:2.5
   },
   runes:{
     andariel:0.5,countess:2.5,pit:1.0,tristram:0.5,duriel:0.5,
-    mephisto:0.8,lowerKurast:3.0,threshSocket:0.5,baal:0.7
+    mephisto:0.8,lowerKurast:3.0,riverOfFlame:3.0,threshSocket:0.5,nihlathak:0.8,baal:0.7
   }
 };
 
-let state={dashboard:null,selected:null,running:false,settings:null};
+let state={dashboard:null,selected:null,running:false,settings:null,manualBusy:false,manualResults:[]};
 
 const $=id=>document.getElementById(id);
 const fmt=n=>Number(n||0).toLocaleString();
@@ -116,10 +118,12 @@ function renderDashboard(dash){
   }else{
     const imported=Number(totals.importedChecked||0);
     const native=Number(totals.nativeChecked||0);
-    $("evaluatedNote").textContent=
-      imported>0
-        ? `${fmt(imported)} from legacy runs + ${fmt(native)} from GUI scans`
-        : `${fmt(native)} from GUI scans`;
+    const manual=Number(totals.manualChecked||0);
+    const pieces=[];
+    if(imported>0)pieces.push(`${fmt(imported)} legacy`);
+    if(native>0||!pieces.length)pieces.push(`${fmt(native)} scanned`);
+    if(manual>0)pieces.push(`${fmt(manual)} custom`);
+    $("evaluatedNote").textContent=pieces.join(" + ");
     $("yieldNote").textContent=
       totals.represented>0
         ? "valid candidates ÷ represented evaluations"
@@ -140,8 +144,8 @@ function renderDashboard(dash){
       <td class="rank">#${row.rank}</td>
       <td class="seed">${row.seed}</td>
       <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10</span></td>
-      <td><span class="badge elite">${row.eliteCount}/9</span></td>
-      <td>${row.worstLabel}</td>
+      <td><span class="badge elite">${row.eliteCount}/${row.coverageCount||METRICS.length}</span></td>
+      <td>${row.worstLabel||"—"}${(row.coverageCount||METRICS.length)<METRICS.length?' <span class="legacy-note">legacy</span>':''}</td>
       <td class="numeric">${row.overall.toFixed(2)}</td>
     `;
     tr.addEventListener("click",()=>selectSeed(row));
@@ -169,18 +173,36 @@ function selectSeed(row){
   const cards=$("routeCards");
   cards.innerHTML="";
   for(const [m,label] of METRICS){
-    const p=Number(row.percentiles[m]??1);
+    const raw=row.metrics?.[m];
+    const pRaw=row.percentiles?.[m];
+    const hasScore=raw!=null && pRaw!=null && Number.isFinite(Number(pRaw)) && Number.isFinite(Number(raw));
+    const p=hasScore?Number(pRaw):null;
     const div=document.createElement("div");
     div.className="route-card";
-    if(p<=0.10)div.classList.add("elite");
-    if(m===row.worstMetric)div.classList.add("weak");
-    const routeRating=Math.max(0,Math.min(10,10*(1-p)));
-    const beats=Math.max(0,Math.min(100,100*(1-p)));
-    div.innerHTML=`
-      <div class="route-name">${label}${p<=.10?' · ELITE':''}${m===row.worstMetric?' · WEAKEST':''}</div>
-      <div class="route-raw"><strong>${one(row.metrics[m])}</strong><span>distance proxy ↓</span></div>
-      <div class="route-pct"><strong>${routeRating.toFixed(1)} / 10</strong><span>beats ${beats.toFixed(1)}%</span></div>
-    `;
+    if(hasScore&&p<=0.10)div.classList.add("elite");
+    if(hasScore&&m===row.worstMetric)div.classList.add("weak");
+
+    if(!hasScore){
+      div.classList.add("unscored");
+      const soft=Boolean(row.softRanked);
+      div.innerHTML=soft ? `
+        <div class="route-name">${label} · PENALTY</div>
+        <div class="route-raw"><strong>—</strong><span>current strict rule not met</span></div>
+        <div class="route-pct"><strong>0.0 / 10</strong><span>counted as worst route</span></div>
+      ` : `
+        <div class="route-name">${label} · NOT SCORED</div>
+        <div class="route-raw"><strong>—</strong><span>legacy route data</span></div>
+        <div class="route-pct"><strong>—</strong><span>re-analyze seed to add</span></div>
+      `;
+    }else{
+      const routeRating=Math.max(0,Math.min(10,10*(1-p)));
+      const beats=Math.max(0,Math.min(100,100*(1-p)));
+      div.innerHTML=`
+        <div class="route-name">${label}${p<=.10?' · ELITE':''}${m===row.worstMetric?' · WEAKEST':''}</div>
+        <div class="route-raw"><strong>${one(raw)}</strong><span>distance proxy ↓</span></div>
+        <div class="route-pct"><strong>${routeRating.toFixed(1)} / 10</strong><span>beats ${beats.toFixed(1)}%</span></div>
+      `;
+    }
     cards.appendChild(div);
   }
 
@@ -195,6 +217,10 @@ function selectSeed(row){
     ["Duriel: Tomb → Orifice",num(d.durielTomb)],
     ["LK: WP → Camp 1",num(d.lkWpCamp1)],
     ["LK: Camp 1 → Camp 2",num(d.lkCamp1Camp2)],
+    ["RoF superchests found",d.riverChestCount],
+    ["RoF chests routed",d.riverUsedChestCount],
+    ["RoF total chest route",num(d.riverRouteDistance)],
+    ["Halls of Pain → Vaught",num(d.hallsPainToVaught)],
     ["WSK2 segment",num(d.wsk2)],
     ["WSK3 segment",num(d.wsk3)]
   ];
@@ -264,6 +290,8 @@ function setRunning(on){
   $("startBtn").disabled=on;
   $("stopBtn").disabled=!on;
   $("seedCount").disabled=on;
+  $("analyzeSeedsBtn").disabled=on||state.manualBusy;
+  $("manualSeeds").disabled=on||state.manualBusy;
 }
 
 $("startBtn").addEventListener("click",async()=>{
@@ -302,6 +330,97 @@ $("importBtn").addEventListener("click",async()=>{
       toast(`Imported ${fmt(r.imported)} candidates. Original checked total was not found.`);
     }
   }catch(e){toast(String(e.message||e))}
+});
+
+function friendlyReason(reason){
+  const labels={
+    lowerKurast:"Does not meet the 2-camp Lower Kurast filter",
+    riverOfFlame:"Fewer than 3 detected River of Flame superchests",
+    nihlathak:"Could not resolve Halls of Pain → Halls of Vaught",
+    act1BlackMarshWaypoint:"Black Marsh waypoint detector did not resolve",
+    act1StonyWaypoint:"Stony Field waypoint detector did not resolve",
+    wsk2Waypoint:"Worldstone Keep 2 waypoint detector did not resolve",
+    countess:"Countess route unavailable",pit:"Pit route unavailable",
+    tristram:"Tristram route unavailable",duriel:"Duriel route unavailable",
+    baal:"Baal route unavailable",exception:"Seed evaluation error"
+  };
+  return labels[reason]||String(reason||"Rejected by current route rules");
+}
+
+function parseManualSeeds(text){
+  const out=[];
+  const seen=new Set();
+  for(const token of String(text||"").split(/[\s,;]+/)){
+    if(!token)continue;
+    const n=Number(token);
+    if(!Number.isInteger(n)||n<1||n>2147483646||seen.has(n))continue;
+    seen.add(n);out.push(n);
+  }
+  return out;
+}
+
+function renderManualResults(results){
+  state.manualResults=results||[];
+  const wrap=$("manualResultsWrap");
+  const body=$("manualResultsBody");
+  if(!state.manualResults.length){wrap.classList.add("hidden");body.innerHTML="";return;}
+  wrap.classList.remove("hidden");
+  body.innerHTML="";
+
+  for(const result of state.manualResults){
+    const tr=document.createElement("tr");
+    const row=result.row;
+    if(row){
+      tr.classList.add("manual-valid");
+      const soft=Boolean(result.softRanked||row.softRanked);
+      const status=soft
+        ? `<span class="badge penalty">RANKED WITH PENALTY</span><div class="manual-reason">${friendlyReason(result.strictReason||result.reason)}</div>`
+        : `<span class="badge elite">VALID</span>`;
+      tr.innerHTML=`
+        <td class="seed">${result.seed}</td>
+        <td>${status}</td>
+        <td class="rank">#${row.rank}</td>
+        <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10${soft?" · penalty-adjusted":""}</span></td>
+        <td>${row.coverageCount??0}/${METRICS.length}</td>
+      `;
+      tr.title=soft
+        ? "Click to inspect this seed. Missing routes are counted as worst-route penalties."
+        : "Click to inspect this seed";
+      tr.addEventListener("click",()=>selectSeed(row));
+    }else{
+      const suffix=result.legacyStored?" · legacy candidate retained":"";
+      tr.classList.add("manual-invalid");
+      tr.innerHTML=`
+        <td class="seed">${result.seed}</td>
+        <td colspan="4"><span class="manual-reason">${friendlyReason(result.reason)}${suffix}</span></td>
+      `;
+    }
+    body.appendChild(tr);
+  }
+}
+
+$("analyzeSeedsBtn").addEventListener("click",async()=>{
+  const seeds=parseManualSeeds($("manualSeeds").value);
+  if(!seeds.length){toast("Enter at least one valid seed number.");return;}
+  if(seeds.length>100){toast("Analyze at most 100 seeds at a time.");return;}
+
+  try{
+    state.manualBusy=true;setRunning(state.running);
+    $("analyzeSeedsBtn").textContent="Analyzing…";
+    state.settings=readSettings();
+    const result=await window.seedFinder.evaluateSeeds({seeds,settings:state.settings});
+    if(result?.dashboard)renderDashboard(result.dashboard);
+    renderManualResults(result?.results||[]);
+    const strict=(result?.results||[]).filter(x=>x.valid).length;
+    const soft=(result?.results||[]).filter(x=>x.softRanked).length;
+    toast(`Analyzed ${fmt(seeds.length)} seed${seeds.length===1?"":"s"}; ${fmt(strict)} strict match${strict===1?"":"es"}, ${fmt(soft)} ranked with penalties.`);
+  }catch(e){
+    toast(String(e.message||e));
+  }finally{
+    state.manualBusy=false;
+    $("analyzeSeedsBtn").textContent="Analyze Seeds";
+    setRunning(state.running);
+  }
 });
 
 $("dataBtn").addEventListener("click",()=>window.seedFinder.openDataFolder());

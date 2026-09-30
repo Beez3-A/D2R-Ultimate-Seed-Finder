@@ -12,7 +12,7 @@
     <div>
       <div class="eyebrow">DIABLO II: RESURRECTED · OFFLINE HELL</div>
       <h1>D2R Ultimate Seed Finder</h1>
-      <p>Build a permanent database of convenient farming maps. Nine targets, one seed.</p>
+      <p>Build a permanent database of convenient farming maps. Eleven targets, one seed.</p>
     </div>
     <div class="header-actions">
       <button id="importBtn" class="ghost">Import v0.6 CSV</button>
@@ -54,6 +54,37 @@
       </div>
 
       <div id="validationStrip" class="validation-strip"></div>
+
+      <div class="manual-seed-box">
+        <div class="manual-seed-copy">
+          <h3>Analyze Your Own Seeds</h3>
+          <p>Paste one or more offline map seeds. Every seed is ranked. Seeds that miss a strict search rule (for example, the 2-camp Lower Kurast layout) stay rankable but receive a penalty for that route.</p>
+        </div>
+        <div class="manual-seed-controls">
+          <textarea id="manualSeeds" rows="3" placeholder="Example: 1514825796&#10;1141525720"></textarea>
+          <button id="analyzeSeedsBtn" class="primary">Analyze Seeds</button>
+        </div>
+        <div id="manualResultsWrap" class="manual-results hidden">
+          <div class="manual-results-head">
+            <strong>Custom seed results</strong>
+            <span>Strict matches join the database; other seeds are ranked with route penalties.</span>
+          </div>
+          <div class="table-wrap manual-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seed</th>
+                  <th>Status</th>
+                  <th>Rank vs Database</th>
+                  <th>Dream Rating</th>
+                  <th>Routes Scored</th>
+                </tr>
+              </thead>
+              <tbody id="manualResultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="workspace">
@@ -110,7 +141,7 @@
         <div id="detailsEmpty" class="details-empty">
           <div class="big-number">#1</div>
           <h2>Select a seed</h2>
-          <p>Click a leaderboard row to see all nine route ratings, raw distances, and map details.</p>
+          <p>Click a leaderboard or custom-seed row to see all eleven route ratings, raw distances, and map details.</p>
         </div>
         <div id="detailsContent" class="details-content hidden">
           <div class="seed-head">

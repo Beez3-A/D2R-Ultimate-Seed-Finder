@@ -97,6 +97,7 @@ td.numeric,th.numeric{text-align:right}
 .rating{font-size:16px;font-weight:900;color:var(--gold-2)}
 .badge{display:inline-block;padding:3px 6px;border-radius:999px;font-size:10px;font-weight:800}
 .badge.elite{background:#12291c;color:#8ed9aa;border:1px solid #28573b}
+.badge.penalty{background:#33281a;color:#f3c66c;border:1px solid #6f5323}
 .empty{text-align:center;color:var(--muted);padding:35px}
 .weights-panel{padding-bottom:12px}
 
@@ -144,3 +145,34 @@ footer{display:flex;justify-content:space-between;color:#686f79;font-size:10px;p
 }
 
 @media(max-width:1300px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
+
+/* v1.5 custom seed bench */
+.manual-seed-box{
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+  display:grid;grid-template-columns:minmax(250px,.8fr) minmax(420px,1.4fr);gap:12px 18px;align-items:start
+}
+.manual-seed-copy h3{font-size:14px;margin-bottom:5px}
+.manual-seed-copy p{font-size:11px;color:var(--muted);line-height:1.45;max-width:520px}
+.manual-seed-controls{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.manual-seed-controls textarea{
+  width:100%;min-height:70px;resize:vertical;background:#0e1013;color:var(--text);
+  border:1px solid var(--border);border-radius:8px;padding:9px 10px;font:12px/1.45 Consolas,monospace
+}
+.manual-seed-controls textarea:focus{outline:none;border-color:#6d5730;box-shadow:0 0 0 2px rgba(215,170,85,.08)}
+.manual-seed-controls button{min-width:126px}
+.manual-results{grid-column:1/-1;margin-top:2px;border:1px solid #24282e;border-radius:9px;overflow:hidden;background:#101216}
+.manual-results-head{display:flex;justify-content:space-between;gap:12px;padding:9px 11px;color:#d8dbe0;font-size:11px}
+.manual-results-head span{color:var(--muted);font-size:10px}
+.manual-table-wrap{max-height:250px}
+.manual-invalid{cursor:default}
+.manual-invalid:hover{background:transparent}
+.manual-reason{color:#d9969d;font-size:11px}
+.legacy-note{display:inline-block;margin-left:5px;color:#a7936d;font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+.route-card.unscored{opacity:.68;border-style:dashed}
+.route-card.unscored .route-name{color:#9aa1aa}
+
+@media(max-width:900px){
+  .manual-seed-box{grid-template-columns:1fr}
+  .manual-results{grid-column:1}
+  .manual-seed-controls{grid-template-columns:1fr}
+}
