@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("seedFinder",{
   stopScan:()=>ipcRenderer.invoke("scan:stop"),
   openDataFolder:()=>ipcRenderer.invoke("data:open-folder"),
   importV06:()=>ipcRenderer.invoke("import:v06"),
+  evaluateSeeds:payload=>ipcRenderer.invoke("seed:evaluate",payload),
   copySeed:seed=>ipcRenderer.invoke("seed:copy",seed),
   buildInfo:()=>ipcRenderer.invoke("build:info"),
   onScanEvent:fn=>{

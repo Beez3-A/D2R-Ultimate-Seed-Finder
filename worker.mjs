@@ -5,8 +5,13 @@ import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import {
   METRICS,LABELS,defaultConfig,setConfig,initEngine,objectsSanity,
-  runRegression,runPreflight,evalSeed,randomSeed,rankRows,friendlyRankRating
+  runRegression,runPreflight,evalSeed,evalSeedRelaxed,randomSeed,rankRows,friendlyRankRating
 } from "./engine.mjs";
+
+const LEGACY_V06_METRICS=[
+  "andariel","countess","pit","tristram","duriel",
+  "mephisto","lowerKurast","threshSocket","baal"
+];
 
 const args=process.argv.slice(2);
 function arg(name,def=null) {
@@ -77,6 +82,10 @@ function openDb() {
       valid INTEGER NOT NULL DEFAULT 0,
       has_run_totals INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS manual_seed_ids (
+      seed INTEGER PRIMARY KEY,
+      evaluated_at TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -114,9 +123,13 @@ function dashboard(db,settings) {
     FROM legacy_imports
   `).get();
 
+  const manualChecked=Number(
+    db.prepare("SELECT COUNT(*) AS n FROM manual_seed_ids").get().n || 0
+  );
+
   const nativeChecked=Number(nativeStats.checked||0);
   const importedChecked=Number(importStats.checked||0);
-  const represented=nativeChecked+importedChecked;
+  const represented=nativeChecked+importedChecked+manualChecked;
 
   // If this database came from GUI v1.0, it may already contain imported
   // candidates but no legacy_imports record yet. In that case we intentionally
@@ -139,8 +152,9 @@ function dashboard(db,settings) {
     seed:r.seed,
     overall:r.overall,
     eliteCount:r.eliteCount,
+    coverageCount:r.coverageCount,
     worstMetric:r.worstMetric,
-    worstLabel:LABELS[r.worstMetric],
+    worstLabel:LABELS[r.worstMetric] ?? "Unscored routes",
     metrics:r.metrics,
     percentiles:r.percentiles,
     details:r.details
@@ -155,6 +169,7 @@ function dashboard(db,settings) {
       yield:yieldValue,
       nativeChecked,
       importedChecked,
+      manualChecked,
       imports:Number(importStats.imports||0),
       completeImports:Number(importStats.complete_imports||0),
       hasUnaccountedLegacy
@@ -223,7 +238,7 @@ function importV06Csv(db,file) {
 
   const h=rows[0];
   const idx=Object.fromEntries(h.map((x,i)=>[x,i]));
-  for (const req of ["seed",...METRICS]) {
+  for (const req of ["seed",...LEGACY_V06_METRICS]) {
     if (!(req in idx)) throw new Error(`Not a v0.6 all_valid_seeds.csv: missing ${req}`);
   }
 
@@ -251,7 +266,11 @@ function importV06Csv(db,file) {
       if (!Number.isFinite(seed)) continue;
 
       const metrics={};
-      for (const m of METRICS) metrics[m]=Number(r[idx[m]]);
+      for (const m of METRICS) {
+        if (!(m in idx)) { metrics[m]=null; continue; }
+        const v=Number(r[idx[m]]);
+        metrics[m]=Number.isFinite(v)?v:null;
+      }
 
       const details={
         pitSource:r[idx.pit_best_waypoint] ?? "",
@@ -312,6 +331,157 @@ function importV06Csv(db,file) {
     runTotals:totals
   };
 }
+
+function normalizeManualSeeds(input) {
+  const out=[];
+  const seen=new Set();
+  for (const raw of Array.isArray(input)?input:[]) {
+    const seed=Number(raw);
+    if (!Number.isInteger(seed) || seed<1 || seed>2147483646 || seen.has(seed)) continue;
+    seen.add(seed);
+    out.push(seed);
+  }
+  return out;
+}
+
+function rowForUi(r,rank) {
+  if (!r) return null;
+  const soft=Boolean(r.softRanked);
+  const dreamRating=soft
+    ? Math.max(0,Math.min(10,10*(1-Number(r.overall||0)/100)))
+    : friendlyRankRating(rank);
+  return {
+    rank,
+    dreamRating,
+    ratingMode:soft?"penalty-adjusted":"rank-based",
+    seed:r.seed,
+    overall:r.overall,
+    eliteCount:r.eliteCount,
+    coverageCount:r.coverageCount,
+    worstMetric:r.worstMetric,
+    worstLabel:LABELS[r.worstMetric] ?? "—",
+    metrics:r.metrics,
+    percentiles:r.percentiles,
+    details:r.details,
+    softRanked:Boolean(r.softRanked),
+    missingRoutes:Array.isArray(r.missingRoutes)?r.missingRoutes:[]
+  };
+}
+
+function evaluateManualSeeds(db,settings,inputSeeds) {
+  setConfig(settings);
+  const seeds=normalizeManualSeeds(inputSeeds);
+  if (!seeds.length) throw new Error("Enter at least one valid seed (1–2147483646).");
+  if (seeds.length>100) throw new Error("Analyze at most 100 seeds at a time.");
+
+  const existsTest=db.prepare("SELECT valid,reason FROM tested_seeds WHERE seed=?");
+  const existsCandidate=db.prepare("SELECT 1 AS yes FROM candidates WHERE seed=?");
+  const insTest=db.prepare(`
+    INSERT INTO tested_seeds(seed,scanned_at,valid,reason) VALUES(?,?,?,?)
+  `);
+  const updateTestValid=db.prepare(`
+    UPDATE tested_seeds SET scanned_at=?,valid=1,reason=NULL WHERE seed=?
+  `);
+  const insManual=db.prepare(`
+    INSERT OR IGNORE INTO manual_seed_ids(seed,evaluated_at) VALUES(?,?)
+  `);
+  const insCandidate=db.prepare(`
+    INSERT OR REPLACE INTO candidates(seed,metrics_json,details_json,created_at)
+    VALUES(?,?,?,?)
+  `);
+
+  const evaluated=[];
+  db.exec("BEGIN");
+  try {
+    for (const seed of seeds) {
+      const previous=existsTest.get(seed) ?? null;
+      const hadCandidate=Boolean(existsCandidate.get(seed));
+      let strictResult;
+      try {
+        strictResult=evalSeed(seed);
+      } catch (e) {
+        strictResult={valid:false,reason:"exception",message:String(e?.message||e)};
+      }
+
+      let rankResult=strictResult;
+      if (!strictResult.valid && strictResult.reason!=="exception") {
+        try {
+          rankResult=evalSeedRelaxed(seed);
+        } catch (e) {
+          rankResult={valid:false,reason:"exception",message:String(e?.message||e)};
+        }
+      }
+
+      const now=new Date().toISOString();
+      const persistable=strictResult.reason!=="exception";
+      if (!previous && persistable) {
+        insTest.run(seed,now,strictResult.valid?1:0,strictResult.valid?null:(strictResult.reason||"rejected"));
+        insManual.run(seed,now);
+      } else if (strictResult.valid) {
+        // Refresh a previously known seed with all current strict route metrics.
+        updateTestValid.run(now,seed);
+      } else if (persistable) {
+        // A seed may already be known from a scan/import. Still remember that
+        // the player explicitly analyzed it without changing candidate status.
+        insManual.run(seed,now);
+      }
+
+      if (strictResult.valid) {
+        insCandidate.run(
+          seed,
+          JSON.stringify(strictResult.metrics),
+          JSON.stringify(strictResult.details),
+          now
+        );
+      }
+
+      const softRanked=!strictResult.valid && Boolean(rankResult?.valid);
+      evaluated.push({
+        seed,
+        valid:Boolean(strictResult.valid),
+        softRanked,
+        strictReason:strictResult.reason ?? null,
+        reason:strictResult.reason ?? null,
+        message:rankResult?.message ?? strictResult.message ?? null,
+        wasAlreadyTracked:Boolean(previous),
+        legacyStored:!strictResult.valid && hadCandidate,
+        rankMetrics:rankResult?.valid ? rankResult.metrics : null,
+        rankDetails:rankResult?.valid ? rankResult.details : null,
+        missingRoutes:rankResult?.valid ? (rankResult.missingRoutes??[]) : []
+      });
+    }
+    db.exec("COMMIT");
+  } catch (e) {
+    try {db.exec("ROLLBACK");} catch {}
+    throw e;
+  }
+
+  // Strict scanner candidates remain the persistent leaderboard. Custom seeds
+  // that fail one or more strict filters are compared against that database in
+  // memory only, with every missing/failed route treated as the worst
+  // percentile. This ranks the player's actual seed instead of rejecting it.
+  const softRows=evaluated
+    .filter(x=>x.softRanked && x.rankMetrics)
+    .map(x=>({
+      seed:x.seed,
+      metrics:x.rankMetrics,
+      details:x.rankDetails,
+      missingPercentile:1,
+      softRanked:true,
+      missingRoutes:x.missingRoutes
+    }));
+
+  const softSeedSet=new Set(softRows.map(r=>Number(r.seed)));
+  const baseRows=candidateRows(db).filter(r=>!softSeedSet.has(Number(r.seed)));
+  const ranked=rankRows([...baseRows,...softRows]);
+  const rankMap=new Map(ranked.map((r,i)=>[Number(r.seed),rowForUi(r,i+1)]));
+
+  return evaluated.map(x=>({
+    ...x,
+    row:(x.valid||x.softRanked) ? (rankMap.get(Number(x.seed)) ?? null) : null
+  }));
+}
+
 await initEngine();
 const db=openDb();
 
@@ -334,6 +504,14 @@ if (mode==="import") {
   const file=path.resolve(payload.file);
   const result=importV06Csv(db,file);
   emit("import-complete",{...result,dashboard:dashboard(db,settings)});
+  db.close();
+  process.exit(0);
+}
+
+if (mode==="evaluate-seeds") {
+  const settings=saveSettings(payload.settings??loadSettings());
+  const results=evaluateManualSeeds(db,settings,payload.seeds??[]);
+  emit("manual-seeds-complete",{results,dashboard:dashboard(db,settings)});
   db.close();
   process.exit(0);
 }

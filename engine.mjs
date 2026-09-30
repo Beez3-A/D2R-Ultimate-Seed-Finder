@@ -20,9 +20,12 @@ export const LEVEL = {
   LowerKurast: 79,
   Durance2: 101,
   Durance3: 102,
+  RiverOfFlame: 107,
 
   ArreatPlateau: 112,
   CrystallinePassage: 113,
+  HallsOfPain: 123,
+  HallsOfVaught: 124,
   WorldstoneKeep2: 129,
   WorldstoneKeep3: 130,
   ThroneOfDestruction: 131
@@ -43,7 +46,9 @@ export const METRICS = [
   "duriel",
   "mephisto",
   "lowerKurast",
+  "riverOfFlame",
   "threshSocket",
+  "nihlathak",
   "baal"
 ];
 
@@ -55,7 +60,9 @@ export const LABELS = {
   duriel: "Duriel / True Tomb",
   mephisto: "Mephisto",
   lowerKurast: "Lower Kurast",
+  riverOfFlame: "River of Flame Superchests",
   threshSocket: "Thresh Socket",
+  nihlathak: "Nihlathak (Halls of Pain → Vaught)",
   baal: "Worldstone / Baal"
 };
 
@@ -65,6 +72,7 @@ export function defaultConfig() {
     topResults: 100,
     requireTwoLowerKurastCampfires: true,
     requireLowerKurastCampsRightOfWaypoint: true,
+    riverOfFlameMinimumChests: 3,
     overallMeanWeight: 0.75,
     overallWorstRouteWeight: 0.25,
     weights: Object.fromEntries(METRICS.map(m => [m, 1]))
@@ -107,13 +115,23 @@ function actualObjects(area) {
 }
 
 
+const WAYPOINT_OBJECT_IDS = new Set([119,145,237,324,398,402,429,494,496,511]);
+
 function waypoint(area) {
   // Normal generated waypoint Objects.txt presets (indoor maps and the acts
   // where libd2 exposes them directly).
   const candidates = actualObjects(area).filter(o =>
     String(o.name ?? "").toLowerCase().includes("waypoint")
   );
-  return candidates[0]?.location ?? null;
+  if (candidates[0]?.location) return candidates[0].location;
+
+  // The compatibility patch keeps non-object preset records but intentionally
+  // leaves their name blank. Waypoints do NOT all use Objects.txt class 119:
+  // expansion areas use additional waypoint classes (notably 429 for the
+  // expansion/no-snow waypoint used by Act V layouts). Accept the known
+  // waypoint object classes when the name is unavailable.
+  const raw = (area.objects ?? []).find(o => WAYPOINT_OBJECT_IDS.has(Number(o?.classId)));
+  return raw?.location ?? null;
 }
 
 
@@ -675,6 +693,139 @@ function lowerKurastDetails(game) {
   return {score:d1+d2,d1,d2};
 }
 
+
+
+function presetObjectName(o) {
+  const supplied=String(o?.name ?? "").trim();
+  if (supplied) return supplied;
+  if (!isTrueObjectPreset(o)) return "";
+  try { return String(objectName(Number(o.classId)) ?? ""); } catch { return ""; }
+}
+
+function bestOpenVisitPath(start,points,count) {
+  if (!start || !Array.isArray(points) || points.length<count || count<=0) return null;
+
+  // River of Flame normally exposes only a handful of deterministic chest
+  // presets. Cap the search pool defensively so a malformed/custom data set
+  // cannot turn a four-stop path search into factorial work.
+  const pool=[...points]
+    .map(p=>({p,d:isoDist(start,p)}))
+    .filter(x=>x.d!=null && Number.isFinite(Number(x.d)))
+    .sort((a,b)=>a.d-b.d)
+    .slice(0,10)
+    .map(x=>x.p);
+
+  if (pool.length<count) return null;
+
+  let best=null;
+  const used=new Array(pool.length).fill(false);
+  const order=[];
+
+  function walk(last,total) {
+    if (order.length===count) {
+      if (!best || total<best.distance)
+        best={distance:total,order:order.map(i=>pool[i])};
+      return;
+    }
+
+    for (let i=0;i<pool.length;i++) {
+      if (used[i]) continue;
+      const d=isoDist(last,pool[i]);
+      if (d==null) continue;
+      const next=total+d;
+      if (best && next>=best.distance) continue;
+      used[i]=true;
+      order.push(i);
+      walk(pool[i],next);
+      order.pop();
+      used[i]=false;
+    }
+  }
+
+  walk(start,0);
+  return best;
+}
+
+function riverOfFlameDetails(game) {
+  const area=game.area(LEVEL.RiverOfFlame);
+  const start=waypoint(area);
+  if (!start) return null;
+
+  // Superchests in River of Flame are deterministic DS1 object presets.
+  // libd2 exposes those preset objects; unlike random poppables, they therefore
+  // remain stable for a seed. We intentionally match chest-named Objects.txt
+  // presets rather than hard-coding a fragile object ID.
+  const chests=uniqObjects(actualObjects(area).filter(o=>
+    /chest/i.test(presetObjectName(o))
+  ));
+
+  const minimum=Math.max(1,Math.trunc(Number(CONFIG.riverOfFlameMinimumChests ?? 3)));
+  if (chests.length<minimum) return null;
+
+  // Prefer four when a layout provides four; otherwise use the requested
+  // three-chest minimum. If a modded data set exposes more than four, choose
+  // the shortest four-stop route.
+  const usedCount=chests.length>=4 ? 4 : minimum;
+  const route=bestOpenVisitPath(start,chests,usedCount);
+  if (!route) return null;
+
+  // Normalize by opened chest count so a useful four-chest route is not
+  // automatically punished merely for containing one extra stop.
+  const score=route.distance/usedCount;
+
+  return {
+    score,
+    chestCount:chests.length,
+    usedCount,
+    routeDistance:route.distance,
+    chests:route.order.map(p=>({x:p.x,y:p.y,classId:p.classId,name:p.name}))
+  };
+}
+
+function nihlathakDiagnostic(game) {
+  try {
+    const pain=game.area(LEVEL.HallsOfPain);
+    const start=waypoint(pain);
+    const ex=exitTo(pain,LEVEL.HallsOfVaught);
+    const out=exitPoint(ex,start ?? pain.middle);
+    const objects=(pain.objects ?? [])
+      .filter(o => WAYPOINT_OBJECT_IDS.has(Number(o?.classId)) || String(o?.name ?? "").toLowerCase().includes("waypoint"))
+      .map(o => ({
+        etype:o?.etype ?? null,
+        classId:Number(o?.classId),
+        name:String(o?.name ?? ""),
+        x:Number(o?.location?.x),
+        y:Number(o?.location?.y)
+      }));
+    const exits=(pain.exits ?? []).map(e => ({
+      toId:Number(e?.to?.id),
+      toName:String(e?.to?.name ?? ""),
+      points:Array.from(e?.points ?? []).slice(0,4).map(p=>({x:Number(p?.x),y:Number(p?.y)}))
+    }));
+    return {
+      start:start?{x:Number(start.x),y:Number(start.y)}:null,
+      vaughtExit:out?{x:Number(out.x),y:Number(out.y)}:null,
+      objects,
+      exits
+    };
+  } catch (e) {
+    return {error:String(e?.stack ?? e)};
+  }
+}
+
+function nihlathakDetails(game) {
+  const pain=game.area(LEVEL.HallsOfPain);
+  const start=waypoint(pain);
+  if (!start) return null;
+
+  const vaught=exitPoint(exitTo(pain,LEVEL.HallsOfVaught),start);
+  if (!vaught) return null;
+
+  const score=isoDist(start,vaught);
+  if (score==null) return null;
+  return {score};
+}
+
 function metricThresh(game) {
   const a=game.area(LEVEL.ArreatPlateau);
   const start=waypoint(a);
@@ -723,7 +874,9 @@ const VALIDATORS = {
   duriel:g=>durielDetails(g)?.score ?? null,
   mephisto:g=>metricMephisto(g),
   lowerKurast:g=>lowerKurastDetails(g)?.score ?? null,
+  riverOfFlame:g=>riverOfFlameDetails(g)?.score ?? null,
   threshSocket:g=>metricThresh(g),
+  nihlathak:g=>nihlathakDetails(g)?.score ?? null,
   baal:g=>baalDetails(g)?.score ?? null
 };
 
@@ -752,12 +905,16 @@ function evalSeed(seed) {
     const pit=pitDetails(game,blackWp);
     const tristram=tristramDetails(game,stonyWp);
     const duriel=durielDetails(game);
+    const river=riverOfFlameDetails(game);
+    const nihlathak=nihlathakDetails(game);
     const baal=baalDetails(game,wsk2Wp);
 
     if (!countess) return {valid:false,reason:"countess"};
     if (!pit) return {valid:false,reason:"pit"};
     if (!tristram) return {valid:false,reason:"tristram"};
     if (!duriel) return {valid:false,reason:"duriel"};
+    if (!river) return {valid:false,reason:"riverOfFlame"};
+    if (!nihlathak) return {valid:false,reason:"nihlathak"};
     if (!baal) return {valid:false,reason:"baal"};
 
     const values={
@@ -768,7 +925,9 @@ function evalSeed(seed) {
       duriel:duriel.score,
       mephisto:metricMephisto(game),
       lowerKurast:lk.score,
+      riverOfFlame:river.score,
       threshSocket:metricThresh(game),
+      nihlathak:nihlathak.score,
       baal:baal.score
     };
 
@@ -793,9 +952,87 @@ function evalSeed(seed) {
         durielTomb:duriel.tombDistance,
         lkWpCamp1:lk.d1,
         lkCamp1Camp2:lk.d2,
+        riverChestCount:river.chestCount,
+        riverUsedChestCount:river.usedCount,
+        riverRouteDistance:river.routeDistance,
+        riverChests:river.chests,
+        hallsPainToVaught:nihlathak.score,
         wsk2:baal.wsk2,
         wsk3:baal.wsk3
       }
+    };
+  });
+}
+
+function evalSeedRelaxed(seed) {
+  return withGame(seed,game=>{
+    // Manual-seed analysis is deliberately permissive. Each route is measured
+    // independently; a route that does not satisfy the scanner's strict rule
+    // is left unscored and receives a worst-route penalty during ranking.
+    // This lets players compare any seed they already found without weakening
+    // the normal high-quality seed search filters.
+    const safe=fn=>{ try { return fn(); } catch { return null; } };
+
+    const blackWp=safe(()=>act1OutdoorWaypoint(game.area(LEVEL.BlackMarsh)));
+    const stonyWp=safe(()=>act1OutdoorWaypoint(game.area(LEVEL.StonyField)));
+    const wsk2Wp=safe(()=>worldstone2Waypoint(game.area(LEVEL.WorldstoneKeep2)));
+
+    const countess=blackWp ? safe(()=>countessDetails(game,blackWp)) : null;
+    const pit=blackWp ? safe(()=>pitDetails(game,blackWp)) : null;
+    const tristram=stonyWp ? safe(()=>tristramDetails(game,stonyWp)) : null;
+    const duriel=safe(()=>durielDetails(game));
+    const lk=safe(()=>lowerKurastDetails(game));
+    const river=safe(()=>riverOfFlameDetails(game));
+    const nihlathak=safe(()=>nihlathakDetails(game));
+    const baal=wsk2Wp ? safe(()=>baalDetails(game,wsk2Wp)) : null;
+
+    const values={
+      andariel:safe(()=>metricAndariel(game)),
+      countess:countess?.score ?? null,
+      pit:pit?.score ?? null,
+      tristram:tristram?.score ?? null,
+      duriel:duriel?.score ?? null,
+      mephisto:safe(()=>metricMephisto(game)),
+      lowerKurast:lk?.score ?? null,
+      riverOfFlame:river?.score ?? null,
+      threshSocket:safe(()=>metricThresh(game)),
+      nihlathak:nihlathak?.score ?? null,
+      baal:baal?.score ?? null
+    };
+
+    for (const m of METRICS)
+      if (values[m]==null || !Number.isFinite(Number(values[m]))) values[m]=null;
+
+    const details={
+      countessEntrance:countess?.entrance ?? null,
+      blackMarshWaypointRoom:blackWp?.roomIndex ?? null,
+      stonyFieldWaypointRoom:stonyWp?.roomIndex ?? null,
+      wsk2WaypointBlock:wsk2Wp?.blockId ?? null,
+      pitSource:pit?.source ?? null,
+      tristramStoneCount:tristram?.stoneCount ?? null,
+      trueTombId:duriel?.tomb?.id ?? null,
+      trueTombName:duriel?.tomb?.name ?? null,
+      durielCanyon:duriel?.canyonDistance ?? null,
+      durielTomb:duriel?.tombDistance ?? null,
+      lkWpCamp1:lk?.d1 ?? null,
+      lkCamp1Camp2:lk?.d2 ?? null,
+      riverChestCount:river?.chestCount ?? null,
+      riverUsedChestCount:river?.usedCount ?? null,
+      riverRouteDistance:river?.routeDistance ?? null,
+      riverChests:river?.chests ?? null,
+      hallsPainToVaught:nihlathak?.score ?? null,
+      wsk2:baal?.wsk2 ?? null,
+      wsk3:baal?.wsk3 ?? null
+    };
+
+    const missingRoutes=METRICS.filter(m=>values[m]==null);
+    return {
+      valid:true,
+      seed,
+      metrics:values,
+      details,
+      missingRoutes,
+      softRanked:missingRoutes.length>0
     };
   });
 }
@@ -810,13 +1047,15 @@ function randomSeed() {
 function rankRows(rows) {
   if (!rows.length) return [];
 
-  // Tie-aware midrank percentiles. Equal route values MUST receive the same
-  // percentile regardless of database/import/scan order.
+  // Tie-aware midrank percentiles. Missing route values are allowed so
+  // databases imported from the nine-route releases remain usable. A legacy
+  // missing routes receive a neutral aggregate contribution while remaining
+  // visibly unscored in the UI, so old and fully refreshed rows are distinct.
   const percentiles={};
   for (const m of METRICS) {
-    const sorted=[...rows].sort((a,b)=>
-      a.metrics[m]-b.metrics[m] || Number(a.seed)-Number(b.seed)
-    );
+    const sorted=rows
+      .filter(r=>r.metrics?.[m]!=null && Number.isFinite(Number(r.metrics[m])))
+      .sort((a,b)=>Number(a.metrics[m])-Number(b.metrics[m]) || Number(a.seed)-Number(b.seed));
     const den=Math.max(1,sorted.length-1);
     const map=new Map();
 
@@ -836,13 +1075,27 @@ function rankRows(rows) {
   }
 
   for (const r of rows) {
-    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0;
+    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0,coverage=0,hasMissing=false;
     r.percentiles={};
 
     for (const m of METRICS) {
-      const p=percentiles[m].get(r.seed) ?? 1;
       const w=Math.max(0,Number(CONFIG.weights?.[m] ?? 1));
+      const p=percentiles[m].get(r.seed);
+      if (p==null || !Number.isFinite(Number(p))) {
+        const missingP=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
+        r.percentiles[m]=null;
+        hasMissing=true;
+        // Legacy database rows keep the neutral/median 0.5 treatment. Manual
+        // soft-ranked seeds explicitly set missingPercentile=1 so every route
+        // that fails a strict scanner rule counts as a worst-route penalty.
+        weighted += missingP*w;
+        totalWeight += w;
+        if (missingP>worst) {worst=missingP;worstMetric=m;}
+        continue;
+      }
+
       r.percentiles[m]=p;
+      coverage++;
       if (p<=0.10) elite++;
       if (p>worst) {worst=p;worstMetric=m;}
       weighted += p*w;
@@ -850,17 +1103,21 @@ function rankRows(rows) {
     }
 
     const mean=totalWeight ? weighted/totalWeight : 1;
+    const fallbackMissing=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
+    const effectiveWorst=Math.max(worst<0?1:worst,hasMissing?fallbackMissing:-1);
     const mw=Number(CONFIG.overallMeanWeight);
     const ww=Number(CONFIG.overallWorstRouteWeight);
 
-    r.overall=100*((mw*mean+ww*worst)/Math.max(0.0001,mw+ww));
+    r.overall=100*((mw*mean+ww*effectiveWorst)/Math.max(0.0001,mw+ww));
     r.eliteCount=elite;
+    r.coverageCount=coverage;
     r.worstMetric=worstMetric;
-    r.worstPercentile=worst;
+    r.worstPercentile=effectiveWorst;
   }
 
   return [...rows].sort((a,b)=>
     a.overall-b.overall ||
+    b.coverageCount-a.coverageCount ||
     b.eliteCount-a.eliteCount ||
     a.worstPercentile-b.worstPercentile ||
     Number(a.seed)-Number(b.seed)
@@ -937,13 +1194,24 @@ export function runPreflight(onMetric=null) {
   let allOK=true;
 
   for (const metric of METRICS) {
-    let ok=false,lastValue=null;
-    const tries=metric==="lowerKurast" ? 120 : 60;
+    let ok=false,lastValue=null,lastDiagnostic=null,lastSeed=null;
+    const knownRiverSeeds=[1514825796,1601243759,1565376659,1113589377];
+    const tries=metric==="riverOfFlame"
+      ? knownRiverSeeds.length
+      : (metric==="lowerKurast" ? 120 : 60);
 
     for (let i=0;i<tries;i++) {
-      const seed=randomSeed();
+      // Three-chest River layouts are intentionally rare, so random preflight
+      // is inappropriate. Probe several community-documented three-chest
+      // seeds instead; all other metrics retain randomized preflight.
+      const seed=metric==="riverOfFlame" ? knownRiverSeeds[i] : randomSeed();
+      lastSeed=seed;
       try {
-        const value=withGame(seed,game=>VALIDATORS[metric](game));
+        const value=withGame(seed,game=>{
+          const v=VALIDATORS[metric](game);
+          if (metric==="nihlathak" && v==null) lastDiagnostic=nihlathakDiagnostic(game);
+          return v;
+        });
         if (value!=null && Number.isFinite(Number(value))) {
           ok=true;
           lastValue=Number(value);
@@ -953,6 +1221,10 @@ export function runPreflight(onMetric=null) {
     }
 
     result[metric]={ok,tries,value:lastValue};
+    if (metric==="nihlathak" && !ok) {
+      result[metric].lastSeed=lastSeed;
+      result[metric].diagnostic=lastDiagnostic;
+    }
     allOK &&= ok;
     if (onMetric) onMetric(metric,result[metric]);
   }
@@ -960,7 +1232,7 @@ export function runPreflight(onMetric=null) {
   return {ok:allOK,metrics:result};
 }
 
-export { evalSeed, randomSeed, rankRows };
+export { evalSeed, evalSeedRelaxed, randomSeed, rankRows };
 
 export function friendlyRankRating(rank) {
   // Friendly display only. Actual ordering always comes from rankRows().

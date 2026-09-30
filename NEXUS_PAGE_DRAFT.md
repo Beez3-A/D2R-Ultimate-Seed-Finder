@@ -6,7 +6,7 @@ D2R Ultimate Seed Finder
 
 ## Short description
 
-Standalone Windows utility for scanning and ranking Diablo II: Resurrected offline Hell map seeds across nine farming routes. Portable EXE, persistent database, custom route weights, and no Node.js or installation required.
+Standalone Windows utility for scanning and ranking Diablo II: Resurrected offline Hell map seeds across eleven farming routes. Portable EXE, persistent database, custom route weights, and no Node.js or installation required.
 
 ## About this mod
 
@@ -25,10 +25,10 @@ The goal is to help find a single seed with convenient layouts across several po
 - Duriel / True Tomb
 - Mephisto
 - Lower Kurast
+- River of Flame Superchests
 - Thresh Socket
+- Nihlathak (Halls of Pain → Halls of Vaught)
 - Worldstone Keep / Baal
-
-Act IV / Chaos Sanctuary is intentionally excluded from the current ranking.
 
 ## Main features
 
@@ -45,6 +45,7 @@ Act IV / Chaos Sanctuary is intentionally excluded from the current ranking.
 - Route Rating / 10
 - Dream Rating / 10
 - Tie-aware deterministic ranking
+- Analyze and rank your own seed IDs, including penalty-ranked non-strict seeds
 - Legacy v0.6 CSV import
 
 ## Lower Kurast
@@ -59,7 +60,7 @@ The layout is scored as waypoint → first camp → second camp.
 
 ## Installation
 
-1. Download `D2R-Ultimate-Seed-Finder-1.4.1-Portable.exe`.
+1. Download `D2R-Ultimate-Seed-Finder-1.5.2-Portable.exe`.
 2. Put it anywhere you like.
 3. Run it.
 

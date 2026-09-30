@@ -6,7 +6,7 @@
 
 **D2R Ultimate Seed Finder** is a standalone Windows utility for finding and ranking convenient **Diablo II: Resurrected offline Hell map seeds** across several popular farming routes.
 
-It scans random seeds, evaluates nine farming targets, keeps a persistent local database of tested seeds, and builds a leaderboard so you can look for one map seed that is strong across the routes you care about.
+It scans random seeds, evaluates eleven farming targets, keeps a persistent local database of tested seeds, and builds a leaderboard so you can look for one map seed that is strong across the routes you care about.
 
 > **Portable:** download one `.exe` and run it.  
 > No Node.js, npm, BAT files, or installation are required.
@@ -24,11 +24,12 @@ It scans random seeds, evaluates nine farming targets, keeps a persistent local 
 - Tie-aware deterministic ranking
 - Balanced, Boss Farming, Rune Farming, and Custom weight presets
 - Legacy import support for the earlier v0.6 `all_valid_seeds.csv`
+- Analyze your own seed IDs, including seeds that miss strict search rules
 - Startup sanity/regression checks for important map detectors
 
 ## Farming targets
 
-The current scanner evaluates these nine targets:
+The current scanner evaluates these eleven targets:
 
 | Act | Target | Route represented |
 |---|---|---|
@@ -39,10 +40,10 @@ The current scanner evaluates these nine targets:
 | II | Duriel / True Tomb | Canyon waypoint to the true Tomb, then Tomb entry to the Orifice |
 | III | Mephisto | Durance of Hate Level 2 waypoint to Durance Level 3 |
 | III | Lower Kurast | Exactly two campfires / six superchests, both screen-right of the waypoint |
+| IV | River of Flame Superchests | River of Flame waypoint through the shortest detected 3- or 4-superchest route |
 | V | Thresh Socket | Arreat Plateau waypoint toward Crystalline Passage |
+| V | Nihlathak | Halls of Pain waypoint to the Halls of Vaught entrance |
 | V | Worldstone / Baal | WSK Level 2 waypoint to WSK3, then toward Throne of Destruction |
-
-Chaos Sanctuary / Act IV is intentionally not part of the ranking.
 
 ## Download
 
@@ -71,12 +72,13 @@ The app stores its persistent database and settings in the normal Windows per-us
 2. Choose how many new seeds you want to scan.
 3. Pick a ranking preset:
    - **Balanced** — equal route weights.
-   - **Boss Farming** — emphasizes Andariel, Duriel, Mephisto, and Baal.
-   - **Rune Farming** — emphasizes Countess and Lower Kurast.
+   - **Boss Farming** — emphasizes Andariel, Duriel, Mephisto, Nihlathak, and Baal.
+   - **Rune Farming** — emphasizes Countess, Lower Kurast, and River of Flame.
    - **Custom** — adjust the individual route sliders yourself.
 4. Click **Start Scan**.
 5. Click any seed in the leaderboard to inspect its route ratings and technical details.
-6. Use **Copy Seed** to copy a selected seed.
+6. To test seeds you already know, paste them into **Analyze Your Own Seeds**. Strict matches can join the candidate database; other seeds remain rankable with penalties for failed routes.
+7. Use **Copy Seed** to copy a selected seed.
 
 A first test of a few hundred or a few thousand seeds is a good way to get familiar with the interface. Larger scans build a stronger comparison database.
 
@@ -144,6 +146,23 @@ The LK score combines:
 
 This is intentionally strict because the project was built around convenient repeatable LK farming layouts.
 
+
+## River of Flame superchest filter
+
+A current scanner candidate must expose at least **three deterministic chest presets** in River of Flame. This is a hard eligibility rule: one or two detected chests are not enough. The scanner starts at the River of Flame waypoint, chooses four chests when four are present (otherwise three), and searches for the shortest open route through those chest locations. The three/four chests do not have to meet a separate fixed distance cutoff; closeness is reflected by the route score, so nearer layouts rank better.
+
+The River metric uses the route distance normalized by the number of opened chests, so a four-chest layout is not automatically penalized simply because it contains an extra stop. The technical-details panel also shows the detected chest count and the total route distance.
+
+Because three-chest River of Flame layouts are rare, startup preflight uses several community-documented three-chest seeds rather than hoping to find one in a small random validation sample.
+
+## Analyze your own seeds
+
+The **Analyze Your Own Seeds** box accepts one or more seed IDs separated by spaces, commas, semicolons, or new lines. Up to 100 can be evaluated at once.
+
+Seeds that satisfy all current scanner filters are stored in the same persistent candidate database as scanner discoveries and receive an actual database rank and Dream Rating under the current weights. A manually entered seed that misses a strict rule is still evaluated and ranked for comparison: failed or unavailable routes receive a worst-route penalty. These penalty-ranked personal seeds do **not** join the strict candidate leaderboard or affect scanner yield statistics.
+
+Older nine-route candidates remain readable after upgrading. Their two new route values are shown as **Not Scored** until that seed is re-analyzed with the current engine.
+
 ## Database and privacy
 
 The program works locally.
@@ -175,7 +194,7 @@ It is simply a cryptographic fingerprint of the release EXE. Normal users do not
 PowerShell example:
 
 ```powershell
-Get-FileHash ".\D2R-Ultimate-Seed-Finder-1.4.0-Portable.exe" -Algorithm SHA256
+Get-FileHash ".\D2R-Ultimate-Seed-Finder-1.5.2-Portable.exe" -Algorithm SHA256
 ```
 
 Compare the printed hash with the value in `SHA256SUMS.txt`.

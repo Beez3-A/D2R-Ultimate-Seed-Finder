@@ -4,6 +4,7 @@ const {spawn} = require("node:child_process");
 const path=require("node:path");
 const fs=require("node:fs");
 
+
 let win=null;
 let scanChild=null;
 
@@ -129,8 +130,15 @@ ipcMain.handle("scan:start",async(_e,payload)=>{
   if(scanChild) throw new Error("A scan is already running.");
 
   scanChild=runWorker("scan",payload,{
-    onEvent:evt=>win?.webContents.send("scan:event",evt),
-    onLog:line=>win?.webContents.send("scan:event",{type:"log",message:line}),
+    onEvent:evt=>{
+      if(!app.isPackaged && (evt.type==="preflight-metric" || evt.type==="fatal"))
+        console.log("[seed-finder]",JSON.stringify(evt));
+      win?.webContents.send("scan:event",evt);
+    },
+    onLog:line=>{
+      if(!app.isPackaged) console.log("[worker]",line);
+      win?.webContents.send("scan:event",{type:"log",message:line});
+    },
     onError:e=>{
       win?.webContents.send("scan:event",{type:"fatal",message:String(e)});
       scanChild=null;
@@ -169,6 +177,21 @@ ipcMain.handle("import:v06",async()=>{
       onEvent:evt=>{if(evt.type==="import-complete") result=evt;},
       onError:reject,
       onExit:code=>code===0?resolve(result):reject(new Error("Import failed."))
+    });
+  });
+});
+
+ipcMain.handle("seed:evaluate",async(_e,payload)=>{
+  if(scanChild) throw new Error("Stop the current scan before analyzing custom seeds.");
+
+  return new Promise((resolve,reject)=>{
+    let result=null;
+    runWorker("evaluate-seeds",payload||{}, {
+      onEvent:evt=>{if(evt.type==="manual-seeds-complete") result=evt;},
+      onError:reject,
+      onExit:code=>code===0&&result
+        ? resolve(result)
+        : reject(new Error("Custom seed analysis failed."))
     });
   });
 });

@@ -74,14 +74,16 @@ This is intentional so replacing the EXE during upgrades does not wipe scan hist
 Please treat these as compatibility-sensitive:
 
 - Hell difficulty
-- nine current farming targets
-- no Act IV / Chaos Sanctuary route
+- eleven current farming targets
+- River of Flame requires at least three detected superchest presets and uses four when available
+- Halls of Pain waypoint → Halls of Vaught / Nihlathak route
 - exact-two-camp Lower Kurast filter
 - both LK camps screen-right of the waypoint
 - tie-aware percentiles
 - 75% weighted mean + 25% weakest-route overall ranking
 - deterministic seed-ID fallback for complete ranking ties
 - startup regression checks for Black Marsh, Stony Field, and WSK2 waypoint detection
+- River of Flame preflight against documented three-superchest seeds
 
 If a pull request changes one of these, call it out explicitly.
 

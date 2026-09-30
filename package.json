@@ -1,6 +1,6 @@
 {
   "name": "d2r-ultimate-seed-finder-gui",
-  "version": "1.4.1",
+  "version": "1.5.2",
   "private": true,
   "main": "main.cjs",
   "type": "module",
@@ -54,7 +54,7 @@
       "output": "dist"
     }
   },
-  "description": "Offline Diablo II: Resurrected Hell map seed finder with persistent ranking database.",
+  "description": "Offline Diablo II: Resurrected Hell map seed finder with persistent ranking database, eleven route targets, and custom seed analysis.",
   "author": "Beez3-A",
   "license": "MIT",
   "repository": {

@@ -13,7 +13,10 @@
     "duriel": 1.0,
     "mephisto": 1.0,
     "lowerKurast": 1.0,
+    "riverOfFlame": 1.0,
     "threshSocket": 1.0,
+    "nihlathak": 1.0,
     "baal": 1.0
-  }
+  },
+  "riverOfFlameMinimumChests": 3
 }
