@@ -1,11 +1,11 @@
-D2R ULTIMATE SEED FINDER - COMMUNITY BUILD v1.5
+D2R ULTIMATE SEED FINDER - COMMUNITY BUILD v1.6.0
 ==================================================
 
 END-USER GOAL
 -------------
 Community users should receive one of these files:
 
-  D2R-Ultimate-Seed-Finder-1.5.2-Portable.exe
+  D2R-Ultimate-Seed-Finder-1.6.0-Portable.exe
 
 They do NOT need:
 - Node.js

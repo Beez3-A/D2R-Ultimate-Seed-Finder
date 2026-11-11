@@ -194,7 +194,7 @@ It is simply a cryptographic fingerprint of the release EXE. Normal users do not
 PowerShell example:
 
 ```powershell
-Get-FileHash ".\D2R-Ultimate-Seed-Finder-1.5.2-Portable.exe" -Algorithm SHA256
+Get-FileHash ".\D2R-Ultimate-Seed-Finder-1.6.0-Portable.exe" -Algorithm SHA256
 ```
 
 Compare the printed hash with the value in `SHA256SUMS.txt`.

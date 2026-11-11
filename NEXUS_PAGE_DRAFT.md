@@ -19,7 +19,7 @@ The goal is to help find a single seed with convenient layouts across several po
 ## Current farming targets
 
 - Andariel
-- Forgotten Tower / Countess
+- Forgotten Tower / Countess (Black Marsh waypoint → Tower Level 5 geometric route)
 - The Pit
 - Stony Field / Cairn Stones / Tristram
 - Duriel / True Tomb
@@ -45,8 +45,16 @@ The goal is to help find a single seed with convenient layouts across several po
 - Route Rating / 10
 - Dream Rating / 10
 - Tie-aware deterministic ranking
-- Analyze and rank your own seed IDs, including penalty-ranked non-strict seeds
+- Analyze and compare your own 32-bit seed IDs, including non-strict seeds
 - Legacy v0.6 CSV import
+
+## v1.6.0 highlights
+
+- Full unsigned 32-bit seed IDs (0–4294967295) accepted; negative signed 32-bit equivalents also supported.
+- Countess route now measures a geometric proxy from the Black Marsh waypoint through the Tower transitions to Level 5, replacing the entrance-only metric.
+- Disabled (zero-weight) targets no longer affect either component of the overall ranking.
+- Manual analysis displays neutral labels instead of visible penalty labels; missing routes still affect the comparison ranking internally.
+- Existing entrance-only Countess scores require re-analysis before being used as full-route scores.
 
 ## Lower Kurast
 
@@ -60,7 +68,7 @@ The layout is scored as waypoint → first camp → second camp.
 
 ## Installation
 
-1. Download `D2R-Ultimate-Seed-Finder-1.5.2-Portable.exe`.
+1. Download `D2R-Ultimate-Seed-Finder-1.6.0-Portable.exe`.
 2. Put it anywhere you like.
 3. Run it.
 

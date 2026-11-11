@@ -2,6 +2,28 @@
 
 All notable public changes to D2R Ultimate Seed Finder are documented here.
 
+## [1.6.0] - 2026-11-11
+
+### Added
+- Manual seed analysis supports the complete unsigned 32-bit range (`0` to `4294967295`) and equivalent signed 32-bit negative inputs.
+- Countess ranking now uses a geometric route proxy from the Black Marsh waypoint through Forgotten Tower Level 5, replacing the old waypoint-to-entrance-only metric.
+
+### Fixed
+- Targets set to zero weight no longer influence either the weighted mean or worst-route portion of the overall ranking.
+- Random seed generation covers the full unsigned 32-bit range.
+- Failure to obtain the full Countess route does not, by itself, invalidate an otherwise eligible scanner seed; the route remains unscored.
+- Existing entrance-only Countess values are not treated as full-Tower results until re-analyzed or rescanned.
+
+### Changed
+- Manual analysis now uses neutral `ANALYZED` and `NOT SCORED` labels rather than advertising route penalties. This is a **display change**: missing or failed routes may still affect the underlying comparison ranking.
+- The strict Lower Kurast scan rule is unchanged: exactly two campfires (six superchests), both to the right of the waypoint.
+- Updated route descriptions and documentation to describe the Countess metric accurately.
+
+### Notes
+- Countess distances are map-geometry proxies, not guaranteed walking or teleporting times.
+- This adaptation builds on the community proof of concept by RoOoBerT (PR #2) but has not been merged verbatim.
+- Validate the build and full-Tower routes in-game before releasing to end users.
+
 ## [1.5.2] - 2026-09-30
 
 ### Added
