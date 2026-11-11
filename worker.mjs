@@ -93,7 +93,15 @@ function openDb() {
 function candidateRows(db) {
   return db.prepare("SELECT seed,metrics_json,details_json FROM candidates").all().map(r=>({
     seed:Number(r.seed),
-    metrics:JSON.parse(r.metrics_json),
+    metrics:(()=>{
+      const metrics=JSON.parse(r.metrics_json);
+      const details=JSON.parse(r.details_json);
+      // Old v1.5.2 database records contain the entrance-only Countess
+      // metric. Do not reinterpret it as a full-route score. They remain
+      // safely unscored until this seed is re-analyzed or rescanned.
+      if (!Object.hasOwn(details,"countessFullTower")) metrics.countess=null;
+      return metrics;
+    })(),
     details:JSON.parse(r.details_json)
   }));
 }
@@ -337,9 +345,11 @@ function normalizeManualSeeds(input) {
   const seen=new Set();
   for (const raw of Array.isArray(input)?input:[]) {
     const seed=Number(raw);
-    if (!Number.isInteger(seed) || seed<1 || seed>2147483646 || seen.has(seed)) continue;
-    seen.add(seed);
-    out.push(seed);
+    if (!Number.isInteger(seed) || seed<(-2147483648) || seed>4294967295) continue;
+    const canonical=seed<0?seed+4294967296:seed;
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    out.push(canonical);
   }
   return out;
 }
@@ -353,7 +363,7 @@ function rowForUi(r,rank) {
   return {
     rank,
     dreamRating,
-    ratingMode:soft?"penalty-adjusted":"rank-based",
+    ratingMode:soft?"manual-comparison":"rank-based",
     seed:r.seed,
     overall:r.overall,
     eliteCount:r.eliteCount,
@@ -371,7 +381,7 @@ function rowForUi(r,rank) {
 function evaluateManualSeeds(db,settings,inputSeeds) {
   setConfig(settings);
   const seeds=normalizeManualSeeds(inputSeeds);
-  if (!seeds.length) throw new Error("Enter at least one valid seed (1–2147483646).");
+  if (!seeds.length) throw new Error("Enter at least one valid 32-bit seed (0–4294967295, or signed equivalent).");
   if (seeds.length>100) throw new Error("Analyze at most 100 seeds at a time.");
 
   const existsTest=db.prepare("SELECT valid,reason FROM tested_seeds WHERE seed=?");

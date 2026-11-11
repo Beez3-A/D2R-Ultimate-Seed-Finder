@@ -34,7 +34,7 @@ The current scanner evaluates these eleven targets:
 | Act | Target | Route represented |
 |---|---|---|
 | I | Andariel | Catacombs Level 2 waypoint toward deeper Catacombs / Andariel |
-| I | Forgotten Tower / Countess | Black Marsh waypoint to Forgotten Tower entrance |
+| I | Countess (Black Marsh → Tower Level 5) | Black Marsh waypoint to Forgotten Tower Level 5 (geometric exit-to-exit proxy) |
 | I | The Pit | Best approach from Black Marsh or Outer Cloister |
 | I | Tristram | Stony Field waypoint to the Cairn Stones |
 | II | Duriel / True Tomb | Canyon waypoint to the true Tomb, then Tomb entry to the Orifice |
@@ -77,7 +77,7 @@ The app stores its persistent database and settings in the normal Windows per-us
    - **Custom** — adjust the individual route sliders yourself.
 4. Click **Start Scan**.
 5. Click any seed in the leaderboard to inspect its route ratings and technical details.
-6. To test seeds you already know, paste them into **Analyze Your Own Seeds**. Strict matches can join the candidate database; other seeds remain rankable with penalties for failed routes.
+6. To test seeds you already know, paste them into **Analyze Your Own Seeds**. Strict matches can join the candidate database; other seeds remain rankable; missing routes are displayed as unscored.
 7. Use **Copy Seed** to copy a selected seed.
 
 A first test of a few hundred or a few thousand seeds is a good way to get familiar with the interface. Larger scans build a stronger comparison database.
@@ -159,7 +159,7 @@ Because three-chest River of Flame layouts are rare, startup preflight uses seve
 
 The **Analyze Your Own Seeds** box accepts one or more seed IDs separated by spaces, commas, semicolons, or new lines. Up to 100 can be evaluated at once.
 
-Seeds that satisfy all current scanner filters are stored in the same persistent candidate database as scanner discoveries and receive an actual database rank and Dream Rating under the current weights. A manually entered seed that misses a strict rule is still evaluated and ranked for comparison: failed or unavailable routes receive a worst-route penalty. These penalty-ranked personal seeds do **not** join the strict candidate leaderboard or affect scanner yield statistics.
+Seeds that satisfy all current scanner filters are stored in the same persistent candidate database as scanner discoveries and receive an actual database rank and Dream Rating under the current weights. A manually entered seed that misses a strict rule is still evaluated and ranked for comparison: failed or unavailable routes are internally assigned a worst-percentile value for ranking but displayed as unscored, without penalty labels. These comparison-only personal seeds do **not** join the strict candidate leaderboard or affect scanner yield statistics.
 
 Older nine-route candidates remain readable after upgrading. Their two new route values are shown as **Not Scored** until that seed is re-analyzed with the current engine.
 
@@ -242,3 +242,26 @@ Third-party libraries, game-related material, trademarks, and branding/assets ar
 D2R Ultimate Seed Finder is an independent community project and is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.
 
 Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment.
+
+
+### Compatibility notes for the full-route Countess update
+
+The Countess score measures a geometric proxy from the Black Marsh waypoint to the
+Tower entrance and then through Tower Cellar Levels 1–5. This is not an actual
+walkable-path calculation and may differ from in-game travel time.
+
+Previous releases only measured the waypoint-to-Tower-entrance segment. Older
+candidate records are retained, but their former Countess scores are shown as
+**not scored** until those seeds are re-analyzed or re-scanned. The existing
+Countess weight setting is reused, not duplicated.
+
+Normal seed scanning still requires exactly two Lower Kurast campfires on the
+right side of the waypoint. Manual analysis does not change these strict scan
+filters. Manual results with missing routes remain comparable, and the missing
+route treatment still affects the numeric ranking internally; only the
+penalty wording is hidden in the UI. Zero-weight targets cannot affect the
+aggregate Dream Rating or ranking tie-breaks.
+
+Manual input accepts all unsigned 32-bit seeds (0 to 4294967295), and converts
+signed 32-bit equivalents to unsigned values. Whether a particular value
+produces valid map geometry depends on the installed libd2 version.

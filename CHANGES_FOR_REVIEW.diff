@@ -1,0 +1,363 @@
+--- a/engine.mjs
++++ b/engine.mjs
+@@ -8,6 +8,11 @@
+   PitLevel1: 12,
+   PitLevel2: 16,
+   ForgottenTower: 20,
++  TowerCellar1: 21,
++  TowerCellar2: 22,
++  TowerCellar3: 23,
++  TowerCellar4: 24,
++  TowerCellar5: 25,
+   OuterCloister: 27,
+   Catacombs2: 35,
+   Catacombs3: 36,
+@@ -54,7 +59,7 @@
+ 
+ export const LABELS = {
+   andariel: "Andariel",
+-  countess: "Forgotten Tower / Countess",
++  countess: "Countess (Black Marsh → Tower Level 5)",
+   pit: "The Pit",
+   tristram: "Stony → Cairn Stones / Tristram",
+   duriel: "Duriel / True Tomb",
+@@ -513,9 +518,23 @@
+   const entrance=isoDist(start,tower);
+   if (entrance==null) return null;
+ 
++  // The outdoor exit goes to the fixed Forgotten Tower entrance map (area 20).
++  // The generated route begins on Tower Cellar Level 1 (area 21); measure
++  // each of the four floor transitions through the entrance to Level 5.
++  const cellar1=game.area(LEVEL.TowerCellar1);
++  const entryCellar1=entryFrom(cellar1,LEVEL.ForgottenTower);
++  if (!entryCellar1) return null;
++
++  const chain=geometryChain(game,LEVEL.TowerCellar1,entryCellar1,[
++    LEVEL.TowerCellar2, LEVEL.TowerCellar3,
++    LEVEL.TowerCellar4, LEVEL.TowerCellar5
++  ]);
++  if (!chain) return null;
++
+   return {
+-    score:entrance,
++    score:entrance+chain.total,
+     entrance,
++    tower:chain.total,
+     waypointRoom:wp.roomIndex,
+     waypointMatchedKeys:wp.matchedKeys
+   };
+@@ -909,7 +928,6 @@
+     const nihlathak=nihlathakDetails(game);
+     const baal=baalDetails(game,wsk2Wp);
+ 
+-    if (!countess) return {valid:false,reason:"countess"};
+     if (!pit) return {valid:false,reason:"pit"};
+     if (!tristram) return {valid:false,reason:"tristram"};
+     if (!duriel) return {valid:false,reason:"duriel"};
+@@ -919,7 +937,7 @@
+ 
+     const values={
+       andariel:metricAndariel(game),
+-      countess:countess.score,
++      countess:countess?.score ?? null,
+       pit:pit.score,
+       tristram:tristram.score,
+       duriel:duriel.score,
+@@ -932,15 +950,18 @@
+     };
+ 
+     for (const m of METRICS)
+-      if (values[m]==null || !Number.isFinite(Number(values[m])))
++      if (m!=="countess" && (values[m]==null || !Number.isFinite(Number(values[m]))))
+         return {valid:false,reason:m};
++    // Full Tower route data may be unavailable even when the outdoor Pit and
++    // every other strict target is valid. Keep such seeds with Countess unscored.
+ 
+     return {
+       valid:true,
+       seed,
+       metrics:values,
+       details:{
+-        countessEntrance:countess.entrance,
++        countessEntrance:countess?.entrance ?? null,
++        countessFullTower:countess?.tower ?? null,
+         blackMarshWaypointRoom:blackWp.roomIndex,
+         stonyFieldWaypointRoom:stonyWp.roomIndex,
+         wsk2WaypointBlock:wsk2Wp.blockId,
+@@ -1005,6 +1026,7 @@
+ 
+     const details={
+       countessEntrance:countess?.entrance ?? null,
++      countessFullTower:countess?.tower ?? null,
+       blackMarshWaypointRoom:blackWp?.roomIndex ?? null,
+       stonyFieldWaypointRoom:stonyWp?.roomIndex ?? null,
+       wsk2WaypointBlock:wsk2Wp?.blockId ?? null,
+@@ -1038,7 +1060,7 @@
+ }
+ 
+ function randomSeed() {
+-  return 1+Math.floor(Math.random()*2147483646);
++  return Math.floor(Math.random()*4294967296);
+ }
+ 
+ // ---------- RANKING ----------
+@@ -1075,12 +1097,20 @@
+   }
+ 
+   for (const r of rows) {
+-    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0,coverage=0,hasMissing=false;
++    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0,coverage=0,activeElite=0,activeCoverage=0,hasMissing=false;
+     r.percentiles={};
+ 
+     for (const m of METRICS) {
+-      const w=Math.max(0,Number(CONFIG.weights?.[m] ?? 1));
++      const rawWeight=Number(CONFIG.weights?.[m] ?? 1);
++      const w=Number.isFinite(rawWeight)?Math.max(0,rawWeight):0;
+       const p=percentiles[m].get(r.seed);
++      if (w===0) {
++        // Retain route-specific percentile for inspection but do not allow
++        // disabled targets into the mean OR the worst-route component.
++        r.percentiles[m]=p==null?null:p;
++        if (p!=null) coverage++;
++        continue;
++      }
+       if (p==null || !Number.isFinite(Number(p))) {
+         const missingP=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
+         r.percentiles[m]=null;
+@@ -1096,29 +1126,33 @@
+ 
+       r.percentiles[m]=p;
+       coverage++;
+-      if (p<=0.10) elite++;
++      activeCoverage++;
++      if (p<=0.10) {elite++;activeElite++;}
+       if (p>worst) {worst=p;worstMetric=m;}
+       weighted += p*w;
+       totalWeight += w;
+     }
+ 
+-    const mean=totalWeight ? weighted/totalWeight : 1;
++    // No enabled weights means neutral ranking, rather than accidental penalties.
++    const mean=totalWeight ? weighted/totalWeight : 0.5;
+     const fallbackMissing=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
+-    const effectiveWorst=Math.max(worst<0?1:worst,hasMissing?fallbackMissing:-1);
++    const effectiveWorst=totalWeight===0 ? 0.5 : Math.max(worst<0?1:worst,hasMissing?fallbackMissing:-1);
+     const mw=Number(CONFIG.overallMeanWeight);
+     const ww=Number(CONFIG.overallWorstRouteWeight);
+ 
+     r.overall=100*((mw*mean+ww*effectiveWorst)/Math.max(0.0001,mw+ww));
+     r.eliteCount=elite;
+     r.coverageCount=coverage;
++    r.activeCoverageCount=activeCoverage;
++    r.activeEliteCount=activeElite;
+     r.worstMetric=worstMetric;
+     r.worstPercentile=effectiveWorst;
+   }
+ 
+   return [...rows].sort((a,b)=>
+     a.overall-b.overall ||
+-    b.coverageCount-a.coverageCount ||
+-    b.eliteCount-a.eliteCount ||
++    b.activeCoverageCount-a.activeCoverageCount ||
++    b.activeEliteCount-a.activeEliteCount ||
+     a.worstPercentile-b.worstPercentile ||
+     Number(a.seed)-Number(b.seed)
+   );
+--- a/worker.mjs
++++ b/worker.mjs
+@@ -93,7 +93,15 @@
+ function candidateRows(db) {
+   return db.prepare("SELECT seed,metrics_json,details_json FROM candidates").all().map(r=>({
+     seed:Number(r.seed),
+-    metrics:JSON.parse(r.metrics_json),
++    metrics:(()=>{
++      const metrics=JSON.parse(r.metrics_json);
++      const details=JSON.parse(r.details_json);
++      // Old v1.5.2 database records contain the entrance-only Countess
++      // metric. Do not reinterpret it as a full-route score. They remain
++      // safely unscored until this seed is re-analyzed or rescanned.
++      if (!Object.hasOwn(details,"countessFullTower")) metrics.countess=null;
++      return metrics;
++    })(),
+     details:JSON.parse(r.details_json)
+   }));
+ }
+@@ -337,9 +345,11 @@
+   const seen=new Set();
+   for (const raw of Array.isArray(input)?input:[]) {
+     const seed=Number(raw);
+-    if (!Number.isInteger(seed) || seed<1 || seed>2147483646 || seen.has(seed)) continue;
+-    seen.add(seed);
+-    out.push(seed);
++    if (!Number.isInteger(seed) || seed<(-2147483648) || seed>4294967295) continue;
++    const canonical=seed<0?seed+4294967296:seed;
++    if (seen.has(canonical)) continue;
++    seen.add(canonical);
++    out.push(canonical);
+   }
+   return out;
+ }
+@@ -353,7 +363,7 @@
+   return {
+     rank,
+     dreamRating,
+-    ratingMode:soft?"penalty-adjusted":"rank-based",
++    ratingMode:soft?"manual-comparison":"rank-based",
+     seed:r.seed,
+     overall:r.overall,
+     eliteCount:r.eliteCount,
+@@ -371,7 +381,7 @@
+ function evaluateManualSeeds(db,settings,inputSeeds) {
+   setConfig(settings);
+   const seeds=normalizeManualSeeds(inputSeeds);
+-  if (!seeds.length) throw new Error("Enter at least one valid seed (1–2147483646).");
++  if (!seeds.length) throw new Error("Enter at least one valid 32-bit seed (0–4294967295, or signed equivalent).");
+   if (seeds.length>100) throw new Error("Analyze at most 100 seeds at a time.");
+ 
+   const existsTest=db.prepare("SELECT valid,reason FROM tested_seeds WHERE seed=?");
+--- a/ui/app.js
++++ b/ui/app.js
+@@ -1,7 +1,7 @@
+ 
+ const METRICS=[
+   ["andariel","Andariel"],
+-  ["countess","Forgotten Tower / Countess"],
++  ["countess","Countess (Black Marsh → Tower Level 5)"],
+   ["pit","The Pit"],
+   ["tristram","Stony → Cairn Stones / Tristram"],
+   ["duriel","Duriel / True Tomb"],
+@@ -186,9 +186,9 @@
+       div.classList.add("unscored");
+       const soft=Boolean(row.softRanked);
+       div.innerHTML=soft ? `
+-        <div class="route-name">${label} · PENALTY</div>
+-        <div class="route-raw"><strong>—</strong><span>current strict rule not met</span></div>
+-        <div class="route-pct"><strong>0.0 / 10</strong><span>counted as worst route</span></div>
++        <div class="route-name">${label} · NOT SCORED</div>
++        <div class="route-raw"><strong>—</strong><span>route unavailable or current search rule not met</span></div>
++        <div class="route-pct"><strong>—</strong><span>no measurable route</span></div>
+       ` : `
+         <div class="route-name">${label} · NOT SCORED</div>
+         <div class="route-raw"><strong>—</strong><span>legacy route data</span></div>
+@@ -353,8 +353,12 @@
+   for(const token of String(text||"").split(/[\s,;]+/)){
+     if(!token)continue;
+     const n=Number(token);
+-    if(!Number.isInteger(n)||n<1||n>2147483646||seen.has(n))continue;
+-    seen.add(n);out.push(n);
++    // A negative signed 32-bit seed represents the same map as its
++    // unsigned 32-bit equivalent (e.g. -2069705981 → 2225261315).
++    if(!Number.isInteger(n)||n<(-2147483648)||n>4294967295)continue;
++    const seed=n<0?n+4294967296:n;
++    if(seen.has(seed))continue;
++    seen.add(seed);out.push(seed);
+   }
+   return out;
+ }
+@@ -374,18 +378,16 @@
+       tr.classList.add("manual-valid");
+       const soft=Boolean(result.softRanked||row.softRanked);
+       const status=soft
+-        ? `<span class="badge penalty">RANKED WITH PENALTY</span><div class="manual-reason">${friendlyReason(result.strictReason||result.reason)}</div>`
++        ? `<span class="badge">ANALYZED</span>`
+         : `<span class="badge elite">VALID</span>`;
+       tr.innerHTML=`
+         <td class="seed">${result.seed}</td>
+         <td>${status}</td>
+         <td class="rank">#${row.rank}</td>
+-        <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10${soft?" · penalty-adjusted":""}</span></td>
++        <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10</span></td>
+         <td>${row.coverageCount??0}/${METRICS.length}</td>
+       `;
+-      tr.title=soft
+-        ? "Click to inspect this seed. Missing routes are counted as worst-route penalties."
+-        : "Click to inspect this seed";
++      tr.title="Click to inspect this seed";
+       tr.addEventListener("click",()=>selectSeed(row));
+     }else{
+       const suffix=result.legacyStored?" · legacy candidate retained":"";
+@@ -413,7 +415,7 @@
+     renderManualResults(result?.results||[]);
+     const strict=(result?.results||[]).filter(x=>x.valid).length;
+     const soft=(result?.results||[]).filter(x=>x.softRanked).length;
+-    toast(`Analyzed ${fmt(seeds.length)} seed${seeds.length===1?"":"s"}; ${fmt(strict)} strict match${strict===1?"":"es"}, ${fmt(soft)} ranked with penalties.`);
++    toast(`Analyzed ${fmt(seeds.length)} seed${seeds.length===1?"":"s"}; ${fmt(strict)} strict match${strict===1?"":"es"}, ${fmt(soft)} additional results.`);
+   }catch(e){
+     toast(String(e.message||e));
+   }finally{
+--- a/ui/index.html
++++ b/ui/index.html
+@@ -58,7 +58,7 @@
+       <div class="manual-seed-box">
+         <div class="manual-seed-copy">
+           <h3>Analyze Your Own Seeds</h3>
+-          <p>Paste one or more offline map seeds. Every seed is ranked. Seeds that miss a strict search rule (for example, the 2-camp Lower Kurast layout) stay rankable but receive a penalty for that route.</p>
++          <p>Paste one or more offline map seeds (0–4294967295; signed equivalents accepted). Every valid 32-bit seed can be analyzed. Your seed may still be compared with the database when it does not meet the strict seed-finder filters; unavailable routes are shown as not scored.</p>
+         </div>
+         <div class="manual-seed-controls">
+           <textarea id="manualSeeds" rows="3" placeholder="Example: 1514825796&#10;1141525720"></textarea>
+@@ -67,7 +67,7 @@
+         <div id="manualResultsWrap" class="manual-results hidden">
+           <div class="manual-results-head">
+             <strong>Custom seed results</strong>
+-            <span>Strict matches join the database; other seeds are ranked with route penalties.</span>
++            <span>Strict matches join the database; other seeds are compared without being added to the scanner leaderboard.</span>
+           </div>
+           <div class="table-wrap manual-table-wrap">
+             <table>
+--- a/README.md
++++ b/README.md
+@@ -34,7 +34,7 @@
+ | Act | Target | Route represented |
+ |---|---|---|
+ | I | Andariel | Catacombs Level 2 waypoint toward deeper Catacombs / Andariel |
+-| I | Forgotten Tower / Countess | Black Marsh waypoint to Forgotten Tower entrance |
++| I | Countess (Black Marsh → Tower Level 5) | Black Marsh waypoint to Forgotten Tower Level 5 (geometric exit-to-exit proxy) |
+ | I | The Pit | Best approach from Black Marsh or Outer Cloister |
+ | I | Tristram | Stony Field waypoint to the Cairn Stones |
+ | II | Duriel / True Tomb | Canyon waypoint to the true Tomb, then Tomb entry to the Orifice |
+@@ -77,7 +77,7 @@
+    - **Custom** — adjust the individual route sliders yourself.
+ 4. Click **Start Scan**.
+ 5. Click any seed in the leaderboard to inspect its route ratings and technical details.
+-6. To test seeds you already know, paste them into **Analyze Your Own Seeds**. Strict matches can join the candidate database; other seeds remain rankable with penalties for failed routes.
++6. To test seeds you already know, paste them into **Analyze Your Own Seeds**. Strict matches can join the candidate database; other seeds remain rankable; missing routes are displayed as unscored.
+ 7. Use **Copy Seed** to copy a selected seed.
+ 
+ A first test of a few hundred or a few thousand seeds is a good way to get familiar with the interface. Larger scans build a stronger comparison database.
+@@ -159,7 +159,7 @@
+ 
+ The **Analyze Your Own Seeds** box accepts one or more seed IDs separated by spaces, commas, semicolons, or new lines. Up to 100 can be evaluated at once.
+ 
+-Seeds that satisfy all current scanner filters are stored in the same persistent candidate database as scanner discoveries and receive an actual database rank and Dream Rating under the current weights. A manually entered seed that misses a strict rule is still evaluated and ranked for comparison: failed or unavailable routes receive a worst-route penalty. These penalty-ranked personal seeds do **not** join the strict candidate leaderboard or affect scanner yield statistics.
++Seeds that satisfy all current scanner filters are stored in the same persistent candidate database as scanner discoveries and receive an actual database rank and Dream Rating under the current weights. A manually entered seed that misses a strict rule is still evaluated and ranked for comparison: failed or unavailable routes are internally assigned a worst-percentile value for ranking but displayed as unscored, without penalty labels. These comparison-only personal seeds do **not** join the strict candidate leaderboard or affect scanner yield statistics.
+ 
+ Older nine-route candidates remain readable after upgrading. Their two new route values are shown as **Not Scored** until that seed is re-analyzed with the current engine.
+ 
+@@ -242,3 +242,26 @@
+ D2R Ultimate Seed Finder is an independent community project and is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.
+ 
+ Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment.
++
++
++### Compatibility notes for the full-route Countess update
++
++The Countess score measures a geometric proxy from the Black Marsh waypoint to the
++Tower entrance and then through Tower Cellar Levels 1–5. This is not an actual
++walkable-path calculation and may differ from in-game travel time.
++
++Previous releases only measured the waypoint-to-Tower-entrance segment. Older
++candidate records are retained, but their former Countess scores are shown as
++**not scored** until those seeds are re-analyzed or re-scanned. The existing
++Countess weight setting is reused, not duplicated.
++
++Normal seed scanning still requires exactly two Lower Kurast campfires on the
++right side of the waypoint. Manual analysis does not change these strict scan
++filters. Manual results with missing routes remain comparable, and the missing
++route treatment still affects the numeric ranking internally; only the
++penalty wording is hidden in the UI. Zero-weight targets cannot affect the
++aggregate Dream Rating or ranking tie-breaks.
++
++Manual input accepts all unsigned 32-bit seeds (0 to 4294967295), and converts
++signed 32-bit equivalents to unsigned values. Whether a particular value
++produces valid map geometry depends on the installed libd2 version.

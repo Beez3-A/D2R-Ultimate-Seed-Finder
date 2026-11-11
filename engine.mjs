@@ -8,6 +8,11 @@ export const LEVEL = {
   PitLevel1: 12,
   PitLevel2: 16,
   ForgottenTower: 20,
+  TowerCellar1: 21,
+  TowerCellar2: 22,
+  TowerCellar3: 23,
+  TowerCellar4: 24,
+  TowerCellar5: 25,
   OuterCloister: 27,
   Catacombs2: 35,
   Catacombs3: 36,
@@ -54,7 +59,7 @@ export const METRICS = [
 
 export const LABELS = {
   andariel: "Andariel",
-  countess: "Forgotten Tower / Countess",
+  countess: "Countess (Black Marsh → Tower Level 5)",
   pit: "The Pit",
   tristram: "Stony → Cairn Stones / Tristram",
   duriel: "Duriel / True Tomb",
@@ -513,9 +518,23 @@ function countessDetails(game,blackWpInfo=null) {
   const entrance=isoDist(start,tower);
   if (entrance==null) return null;
 
+  // The outdoor exit goes to the fixed Forgotten Tower entrance map (area 20).
+  // The generated route begins on Tower Cellar Level 1 (area 21); measure
+  // each of the four floor transitions through the entrance to Level 5.
+  const cellar1=game.area(LEVEL.TowerCellar1);
+  const entryCellar1=entryFrom(cellar1,LEVEL.ForgottenTower);
+  if (!entryCellar1) return null;
+
+  const chain=geometryChain(game,LEVEL.TowerCellar1,entryCellar1,[
+    LEVEL.TowerCellar2, LEVEL.TowerCellar3,
+    LEVEL.TowerCellar4, LEVEL.TowerCellar5
+  ]);
+  if (!chain) return null;
+
   return {
-    score:entrance,
+    score:entrance+chain.total,
     entrance,
+    tower:chain.total,
     waypointRoom:wp.roomIndex,
     waypointMatchedKeys:wp.matchedKeys
   };
@@ -909,7 +928,6 @@ function evalSeed(seed) {
     const nihlathak=nihlathakDetails(game);
     const baal=baalDetails(game,wsk2Wp);
 
-    if (!countess) return {valid:false,reason:"countess"};
     if (!pit) return {valid:false,reason:"pit"};
     if (!tristram) return {valid:false,reason:"tristram"};
     if (!duriel) return {valid:false,reason:"duriel"};
@@ -919,7 +937,7 @@ function evalSeed(seed) {
 
     const values={
       andariel:metricAndariel(game),
-      countess:countess.score,
+      countess:countess?.score ?? null,
       pit:pit.score,
       tristram:tristram.score,
       duriel:duriel.score,
@@ -932,15 +950,18 @@ function evalSeed(seed) {
     };
 
     for (const m of METRICS)
-      if (values[m]==null || !Number.isFinite(Number(values[m])))
+      if (m!=="countess" && (values[m]==null || !Number.isFinite(Number(values[m]))))
         return {valid:false,reason:m};
+    // Full Tower route data may be unavailable even when the outdoor Pit and
+    // every other strict target is valid. Keep such seeds with Countess unscored.
 
     return {
       valid:true,
       seed,
       metrics:values,
       details:{
-        countessEntrance:countess.entrance,
+        countessEntrance:countess?.entrance ?? null,
+        countessFullTower:countess?.tower ?? null,
         blackMarshWaypointRoom:blackWp.roomIndex,
         stonyFieldWaypointRoom:stonyWp.roomIndex,
         wsk2WaypointBlock:wsk2Wp.blockId,
@@ -1005,6 +1026,7 @@ function evalSeedRelaxed(seed) {
 
     const details={
       countessEntrance:countess?.entrance ?? null,
+      countessFullTower:countess?.tower ?? null,
       blackMarshWaypointRoom:blackWp?.roomIndex ?? null,
       stonyFieldWaypointRoom:stonyWp?.roomIndex ?? null,
       wsk2WaypointBlock:wsk2Wp?.blockId ?? null,
@@ -1038,7 +1060,7 @@ function evalSeedRelaxed(seed) {
 }
 
 function randomSeed() {
-  return 1+Math.floor(Math.random()*2147483646);
+  return Math.floor(Math.random()*4294967296);
 }
 
 // ---------- RANKING ----------
@@ -1075,12 +1097,20 @@ function rankRows(rows) {
   }
 
   for (const r of rows) {
-    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0,coverage=0,hasMissing=false;
+    let weighted=0,totalWeight=0,worst=-1,worstMetric=null,elite=0,coverage=0,activeElite=0,activeCoverage=0,hasMissing=false;
     r.percentiles={};
 
     for (const m of METRICS) {
-      const w=Math.max(0,Number(CONFIG.weights?.[m] ?? 1));
+      const rawWeight=Number(CONFIG.weights?.[m] ?? 1);
+      const w=Number.isFinite(rawWeight)?Math.max(0,rawWeight):0;
       const p=percentiles[m].get(r.seed);
+      if (w===0) {
+        // Retain route-specific percentile for inspection but do not allow
+        // disabled targets into the mean OR the worst-route component.
+        r.percentiles[m]=p==null?null:p;
+        if (p!=null) coverage++;
+        continue;
+      }
       if (p==null || !Number.isFinite(Number(p))) {
         const missingP=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
         r.percentiles[m]=null;
@@ -1096,29 +1126,33 @@ function rankRows(rows) {
 
       r.percentiles[m]=p;
       coverage++;
-      if (p<=0.10) elite++;
+      activeCoverage++;
+      if (p<=0.10) {elite++;activeElite++;}
       if (p>worst) {worst=p;worstMetric=m;}
       weighted += p*w;
       totalWeight += w;
     }
 
-    const mean=totalWeight ? weighted/totalWeight : 1;
+    // No enabled weights means neutral ranking, rather than accidental penalties.
+    const mean=totalWeight ? weighted/totalWeight : 0.5;
     const fallbackMissing=Math.max(0,Math.min(1,Number(r.missingPercentile ?? 0.5)));
-    const effectiveWorst=Math.max(worst<0?1:worst,hasMissing?fallbackMissing:-1);
+    const effectiveWorst=totalWeight===0 ? 0.5 : Math.max(worst<0?1:worst,hasMissing?fallbackMissing:-1);
     const mw=Number(CONFIG.overallMeanWeight);
     const ww=Number(CONFIG.overallWorstRouteWeight);
 
     r.overall=100*((mw*mean+ww*effectiveWorst)/Math.max(0.0001,mw+ww));
     r.eliteCount=elite;
     r.coverageCount=coverage;
+    r.activeCoverageCount=activeCoverage;
+    r.activeEliteCount=activeElite;
     r.worstMetric=worstMetric;
     r.worstPercentile=effectiveWorst;
   }
 
   return [...rows].sort((a,b)=>
     a.overall-b.overall ||
-    b.coverageCount-a.coverageCount ||
-    b.eliteCount-a.eliteCount ||
+    b.activeCoverageCount-a.activeCoverageCount ||
+    b.activeEliteCount-a.activeEliteCount ||
     a.worstPercentile-b.worstPercentile ||
     Number(a.seed)-Number(b.seed)
   );
