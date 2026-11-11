@@ -1,7 +1,7 @@
 
 const METRICS=[
   ["andariel","Andariel"],
-  ["countess","Forgotten Tower / Countess"],
+  ["countess","Countess (Black Marsh → Tower Level 5)"],
   ["pit","The Pit"],
   ["tristram","Stony → Cairn Stones / Tristram"],
   ["duriel","Duriel / True Tomb"],
@@ -186,9 +186,9 @@ function selectSeed(row){
       div.classList.add("unscored");
       const soft=Boolean(row.softRanked);
       div.innerHTML=soft ? `
-        <div class="route-name">${label} · PENALTY</div>
-        <div class="route-raw"><strong>—</strong><span>current strict rule not met</span></div>
-        <div class="route-pct"><strong>0.0 / 10</strong><span>counted as worst route</span></div>
+        <div class="route-name">${label} · NOT SCORED</div>
+        <div class="route-raw"><strong>—</strong><span>route unavailable or current search rule not met</span></div>
+        <div class="route-pct"><strong>—</strong><span>no measurable route</span></div>
       ` : `
         <div class="route-name">${label} · NOT SCORED</div>
         <div class="route-raw"><strong>—</strong><span>legacy route data</span></div>
@@ -353,8 +353,12 @@ function parseManualSeeds(text){
   for(const token of String(text||"").split(/[\s,;]+/)){
     if(!token)continue;
     const n=Number(token);
-    if(!Number.isInteger(n)||n<1||n>2147483646||seen.has(n))continue;
-    seen.add(n);out.push(n);
+    // A negative signed 32-bit seed represents the same map as its
+    // unsigned 32-bit equivalent (e.g. -2069705981 → 2225261315).
+    if(!Number.isInteger(n)||n<(-2147483648)||n>4294967295)continue;
+    const seed=n<0?n+4294967296:n;
+    if(seen.has(seed))continue;
+    seen.add(seed);out.push(seed);
   }
   return out;
 }
@@ -374,18 +378,16 @@ function renderManualResults(results){
       tr.classList.add("manual-valid");
       const soft=Boolean(result.softRanked||row.softRanked);
       const status=soft
-        ? `<span class="badge penalty">RANKED WITH PENALTY</span><div class="manual-reason">${friendlyReason(result.strictReason||result.reason)}</div>`
+        ? `<span class="badge">ANALYZED</span>`
         : `<span class="badge elite">VALID</span>`;
       tr.innerHTML=`
         <td class="seed">${result.seed}</td>
         <td>${status}</td>
         <td class="rank">#${row.rank}</td>
-        <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10${soft?" · penalty-adjusted":""}</span></td>
+        <td><span class="rating">${row.dreamRating.toFixed(1)}</span><span class="muted"> / 10</span></td>
         <td>${row.coverageCount??0}/${METRICS.length}</td>
       `;
-      tr.title=soft
-        ? "Click to inspect this seed. Missing routes are counted as worst-route penalties."
-        : "Click to inspect this seed";
+      tr.title="Click to inspect this seed";
       tr.addEventListener("click",()=>selectSeed(row));
     }else{
       const suffix=result.legacyStored?" · legacy candidate retained":"";
@@ -413,7 +415,7 @@ $("analyzeSeedsBtn").addEventListener("click",async()=>{
     renderManualResults(result?.results||[]);
     const strict=(result?.results||[]).filter(x=>x.valid).length;
     const soft=(result?.results||[]).filter(x=>x.softRanked).length;
-    toast(`Analyzed ${fmt(seeds.length)} seed${seeds.length===1?"":"s"}; ${fmt(strict)} strict match${strict===1?"":"es"}, ${fmt(soft)} ranked with penalties.`);
+    toast(`Analyzed ${fmt(seeds.length)} seed${seeds.length===1?"":"s"}; ${fmt(strict)} strict match${strict===1?"":"es"}, ${fmt(soft)} additional results.`);
   }catch(e){
     toast(String(e.message||e));
   }finally{

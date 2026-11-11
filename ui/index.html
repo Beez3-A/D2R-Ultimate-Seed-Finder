@@ -58,7 +58,7 @@
       <div class="manual-seed-box">
         <div class="manual-seed-copy">
           <h3>Analyze Your Own Seeds</h3>
-          <p>Paste one or more offline map seeds. Every seed is ranked. Seeds that miss a strict search rule (for example, the 2-camp Lower Kurast layout) stay rankable but receive a penalty for that route.</p>
+          <p>Paste one or more offline map seeds (0–4294967295; signed equivalents accepted). Every valid 32-bit seed can be analyzed. Your seed may still be compared with the database when it does not meet the strict seed-finder filters; unavailable routes are shown as not scored.</p>
         </div>
         <div class="manual-seed-controls">
           <textarea id="manualSeeds" rows="3" placeholder="Example: 1514825796&#10;1141525720"></textarea>
@@ -67,7 +67,7 @@
         <div id="manualResultsWrap" class="manual-results hidden">
           <div class="manual-results-head">
             <strong>Custom seed results</strong>
-            <span>Strict matches join the database; other seeds are ranked with route penalties.</span>
+            <span>Strict matches join the database; other seeds are compared without being added to the scanner leaderboard.</span>
           </div>
           <div class="table-wrap manual-table-wrap">
             <table>
